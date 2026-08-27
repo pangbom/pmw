@@ -227,7 +227,7 @@
   var PALETTE=["#59c7e8","#f2c14e","#7ee081","#f2564a","#b58cf0","#4aa3ff","#ff9f68"];
 
   var state={ unit:"ms", caution:13.6, danger:21.4, active:"all", view:"map", sortKey:"custom", sortDir:1,
-    chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"light",
+    chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark",
     order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[{id:"fav",name:"Favourites",builtin:true,members:[]}] };
   var editingList=null, openPop=null, lastChart=null;
 
@@ -462,10 +462,10 @@
   function closeCams(){ document.getElementById("overlay").classList.remove("open"); }
 
   var BASEMAPS={
-    light:{url:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",opts:{maxZoom:19,subdomains:"abcd",attribution:"\u00a9 OpenStreetMap \u00a9 CARTO"}},
+    light:{url:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",opts:{maxZoom:19,subdomains:"abc",attribution:"\u00a9 OpenStreetMap contributors"}},
     terrain:{url:"https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",opts:{maxZoom:17,subdomains:"abc",attribution:"\u00a9 OpenStreetMap, SRTM | \u00a9 OpenTopoMap"}},
     satellite:{url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",opts:{maxZoom:19,attribution:"Imagery \u00a9 Esri"}},
-    dark:{url:"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",opts:{maxZoom:19,subdomains:"abcd",attribution:"\u00a9 OpenStreetMap \u00a9 CARTO"}}
+    dark:{url:"https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",opts:{maxZoom:16,attribution:"\u00a9 Esri, \u00a9 OpenStreetMap contributors"}}
   };
   var tileLayer=null;
   function setBasemap(key,save){ if(!map)return; var b=BASEMAPS[key]||BASEMAPS.light; if(tileLayer)map.removeLayer(tileLayer); tileLayer=L.tileLayer(b.url,b.opts).addTo(map); state.basemap=key; var sel=document.getElementById("basemapSel"); if(sel)sel.value=key; if(save)persist(); }
