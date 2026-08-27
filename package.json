@@ -1,0 +1,12 @@
+{
+  "name": "pmw-wind-board",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pure Mountain Weather — observed wind board for the Soča / Bovec launches",
+  "scripts": {
+    "collect": "node collector.js"
+  },
+  "dependencies": {
+    "playwright": "^1.47.0"
+  }
+}

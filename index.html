@@ -1,0 +1,588 @@
+<!-- Pure Mountain Weather — LIVE. Reads data.json (observed winds) every 5 min. Open-Meteo model fallback when stale. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pure Mountain Weather — Soča wind</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#0d151f; --panel:#14202e; --panel-2:#1a2938; --line:#25384f;
+    --ink:#e8eef6; --ink-dim:#8ba0b6; --ink-faint:#5f7288;
+    --accent:#59c7e8; --go:#3fb950; --caution:#e3b341; --danger:#f2564a; --radius:12px;
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+  a{color:var(--accent)}
+
+  .banner{background:#12291c;color:#8fd6a6;border-bottom:1px solid #244a33;font-size:12px;padding:6px 18px;text-align:center;letter-spacing:.02em}
+  .banner strong{color:#c6f0d4}
+  .banner.stale{background:#3a1414;color:#ffb3ab;border-bottom:1px solid #5a2420}
+  .banner.stale strong{color:#ffd4cf}
+
+  header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#16283a,#111c28)}
+  .brand h1{font-size:18px;font-weight:600;margin:0;letter-spacing:.01em}
+  header .spacer{flex:1}
+  .controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .ctl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim)}
+  .ctl label{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;color:var(--ink-dim);border:0;cursor:pointer;padding:5px 9px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  .seg button.on{background:var(--accent);color:#062330;font-weight:600}
+  .seg button:not(.on):hover{background:var(--panel-2);color:var(--ink)}
+  input.num{width:48px;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:5px 7px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  input.num:focus{outline:none;border-color:var(--accent)}
+  button.act{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:7px}
+  button.act:hover{border-color:var(--accent);color:#fff}
+
+  .lists{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--line);background:#101b27}
+  .ltab{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:5px 13px;cursor:pointer;font-size:13px}
+  .ltab:hover{color:var(--ink);border-color:#33475f}
+  .ltab.on{background:var(--accent);color:#062330;border-color:var(--accent);font-weight:600}
+  .ltab .ct{font-family:"IBM Plex Mono",monospace;font-size:11px;opacity:.8}
+  .ltab.newl{border-style:dashed;color:var(--ink-faint)}
+  .ltab.newl:hover{color:var(--accent);border-color:var(--accent)}
+  .listmini{display:inline-flex;gap:8px;align-items:center;margin-left:4px}
+  .listmini button{background:none;border:0;color:var(--ink-faint);cursor:pointer;font-size:12px;padding:2px 4px}
+  .listmini button:hover{color:var(--accent)}
+  .newinput{background:var(--panel-2);border:1px solid var(--accent);color:var(--ink);border-radius:20px;padding:5px 12px;font-size:13px;width:150px}
+  .newinput:focus{outline:none}
+
+  .content{height:calc(100% - 61px - 40px - 45px)}
+  .app{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);height:100%}
+  #map{height:100%;width:100%;background:#0a1119}
+  .board{overflow-y:auto;border-left:1px solid var(--line);padding:14px 16px 40px}
+  @media (max-width:900px){.content{height:auto}.app{grid-template-columns:1fr}#map{height:42vh;min-height:260px}.board{border-left:0;border-top:1px solid var(--line)}}
+
+  .cards{display:flex;flex-direction:column;gap:9px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;position:relative;transition:border-color .12s,box-shadow .12s}
+  .card.hl{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .card .head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .nrow{display:flex;align-items:center;gap:8px}
+  .star{background:none;border:0;cursor:pointer;font-size:16px;line-height:1;color:var(--ink-faint);padding:0}
+  .star.on{color:#ffce54}
+  .name{font-weight:600;font-size:15px}
+  .src{font-family:"IBM Plex Mono",monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);border:1px solid var(--line);border-radius:5px;padding:1px 5px;text-decoration:none}
+  a.src:hover{color:var(--accent);border-color:var(--accent)}
+  .live{background:var(--go);color:#04120a;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:4px;padding:1px 5px;margin-left:2px}
+  .samp{color:var(--ink-faint);font-size:9px;letter-spacing:.06em;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:2px}
+  .elev{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
+  .headbtns{display:flex;gap:6px;align-items:center}
+  .mini{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);border-radius:7px;padding:4px 8px;font-size:11.5px;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+  .mini:hover{border-color:var(--accent);color:#fff}
+
+  .cbody{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap}
+  .cinfo{display:flex;align-items:center;gap:12px;min-width:0}
+  .compass{width:38px;height:38px;flex:0 0 auto}
+  .compass svg{width:100%;height:100%}
+  .compass .ring{fill:none;stroke:var(--line);stroke-width:2}
+  .compass .arrow{transform-origin:19px 19px;transition:transform .5s ease}
+  .compass .arrow path{fill:var(--accent)}
+  .big{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+  .big .val{font-family:"IBM Plex Mono",monospace;font-size:28px;font-weight:600;line-height:1}
+  .big .val.go{color:var(--go)} .big .val.caution{color:var(--caution)} .big .val.danger{color:var(--danger)}
+  .big .unit{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-dim)}
+  .big .dir-inline{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-dim);margin-left:4px}
+  .ministats{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-dim);margin-top:4px}
+  .ministats b{font-weight:600}
+  .ministats .w-go{color:var(--go)} .ministats .w-caution{color:var(--caution)} .ministats .w-danger{color:var(--danger)}
+  .cchart{flex:0 0 auto;text-align:right}
+  .cchart svg{display:block}
+  .sparklab{font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--ink-faint);margin-top:2px}
+
+  .pop{position:absolute;right:14px;top:44px;z-index:30;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:190px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .pop h4{margin:2px 6px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);font-weight:600}
+  .pop .opt{display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:7px;cursor:pointer;font-size:13px}
+  .pop .opt:hover{background:var(--panel)}
+  .pop .opt input{accent-color:var(--accent)}
+  .pop .div{height:1px;background:var(--line);margin:6px 2px}
+  .pop .newrow{display:flex;gap:6px;padding:2px}
+  .pop .newrow input{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:5px 7px;font-size:12.5px}
+  .pop .newrow button{background:var(--accent);color:#062330;border:0;border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:600;font-size:12.5px}
+
+  .leaflet-div-icon{background:transparent;border:0}
+  .wm{width:84px;text-align:center;font-family:"IBM Plex Sans",sans-serif}
+  .wm svg{display:block;margin:0 auto}
+  .wm-top{display:inline-block;background:rgba(13,21,31,.86);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;margin-top:1px}
+  .wm-bot{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;margin-top:1px;background:rgba(13,21,31,.78);border-radius:5px;padding:0 6px}
+  .wm-bot .b{color:#fff;font-weight:600} .wm-bot .g{color:#c7d2dd;font-weight:600;margin-left:6px}
+
+  .map-ctrl{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:3px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .map-ctrl select{background:var(--panel-2);color:var(--ink);border:0;border-radius:6px;padding:4px 6px;font-size:12px;font-family:"IBM Plex Sans",sans-serif;cursor:pointer}
+  .map-ctrl select:focus{outline:none}
+
+  .tableview{height:100%;overflow:auto}
+  table.wt{width:100%;border-collapse:collapse;font-size:13px}
+  .wt th{position:sticky;top:0;background:#101b27;color:var(--ink-dim);text-align:left;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;z-index:2}
+  .wt th.sorted{color:var(--accent)}
+  .wt th .ar{font-size:9px;opacity:.85}
+  .wt td{padding:7px 10px;border-bottom:1px solid #1c2b3c;font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  .wt td.name{font-family:"IBM Plex Sans",sans-serif;font-weight:600}
+  .wt tr:hover td{background:var(--panel)}
+  .wt .w-go{color:var(--go)} .wt .w-caution{color:var(--caution)} .wt .w-danger{color:var(--danger)}
+  .wt .starcell{cursor:pointer;font-size:14px;color:var(--ink-faint)}
+  .wt .starcell.on{color:#ffce54}
+  .wt .ordin{width:34px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:3px 4px;font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:center}
+  .wt .ordin:focus{outline:none;border-color:var(--accent)}
+  .wt a.srcmini{color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-left:8px;font-family:"IBM Plex Mono",monospace;text-decoration:none}
+  .wt a.srcmini:hover{color:var(--accent)}
+  .wt .dirmini{display:inline-flex;align-items:center;gap:6px}
+  .wt .dirmini svg{display:block}
+  .wt .camlink{color:var(--accent);cursor:pointer;margin-left:8px}
+  .wt td.spark svg{display:block}
+  .wt .eye{cursor:pointer;font-size:14px;color:var(--go)}
+  .wt .eye.off{color:var(--ink-faint)}
+
+  .pin-legend{display:flex;gap:14px;align-items:center;padding:6px 18px;font-size:11px;color:var(--ink-faint);border-bottom:1px solid var(--line);background:#0f1a26;flex-wrap:wrap}
+
+  .chartview{height:100%;display:flex;flex-direction:column;padding:12px 16px 20px}
+  .chartbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .chartlegend{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+  .lchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim);cursor:pointer;border:1px solid var(--line);border-radius:20px;padding:3px 10px}
+  .lchip .dot{width:10px;height:10px;border-radius:50%}
+  .lchip.off{opacity:.4}
+  .chartwrap{flex:1;min-height:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px;position:relative}
+  .chartwrap svg{width:100%;height:100%;display:block}
+  .chair{position:absolute;top:10px;bottom:30px;width:1px;background:var(--ink-dim);opacity:.55;pointer-events:none;display:none}
+  .ctip{position:absolute;pointer-events:none;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;display:none;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:150px}
+  .ctip .th{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);margin-bottom:6px}
+  .ctip .cr{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:1px 0}
+  .ctip .nm{display:inline-flex;align-items:center;gap:6px}
+  .ctip .dot{width:8px;height:8px;border-radius:50%}
+  .ctip .vv{font-family:"IBM Plex Mono",monospace;font-weight:600}
+
+  .overlay{position:fixed;inset:0;background:rgba(6,12,18,.72);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+  .overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:860px;width:100%;max-height:86vh;overflow:auto;padding:16px 18px}
+  .modal .mhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .modal h3{margin:0;font-size:16px}
+  .modal .close{background:none;border:0;color:var(--ink-dim);font-size:20px;cursor:pointer}
+  .camgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .cam{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .cam .feed{aspect-ratio:16/9;background:repeating-linear-gradient(45deg,#16222f,#16222f 10px,#1a2836 10px,#1a2836 20px);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;text-align:center;position:relative}
+  .cam .feed::after{content:"live in real version";position:absolute;bottom:6px;right:8px;font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--ink-faint)}
+  .cam .cap{padding:8px 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .cam .cap a{font-size:11.5px;text-decoration:none}
+
+  .footer{padding:12px 18px;border-top:1px solid var(--line);color:var(--ink-faint);font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap}
+</style>
+
+<div class="banner" id="banner"><strong>Pure Mountain Weather</strong> &mdash; loading observed wind, Soča valley…</div>
+
+<header>
+  <div class="brand"><h1>Pure Mountain Weather</h1></div>
+  <div class="spacer"></div>
+  <div class="controls">
+    <div class="ctl"><label>View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button></div></div>
+    <div class="ctl"><label>Unit</label><div class="seg" id="unitSeg"><button data-u="kn">kt</button><button data-u="ms">m/s</button><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div></div>
+    <div class="ctl"><label>Caution &#8805;</label><input class="num" id="caution" type="number" min="0" step="0.5"><span id="cautionUnit">m/s</span></div>
+    <div class="ctl"><label>Danger &#8805;</label><input class="num" id="danger" type="number" min="0" step="0.5"><span id="dangerUnit">m/s</span></div>
+    <button class="act" id="camsBtn">&#9673; Webcams</button>
+    <button class="act" id="refresh"><span id="refIcon">&#8635;</span> Refresh</button>
+  </div>
+</header>
+
+<div class="lists" id="lists"></div>
+<div class="pin-legend" id="legend" style="display:none">
+  <span>Barb: &#9711; = station &middot; &frac12; = 5, | = 10, &#9650; = 50 kt &middot; staff points into the wind.</span>
+</div>
+
+<div class="content" id="content">
+  <div class="app" id="mapview">
+    <div id="map"></div>
+    <div class="board"><div class="cards" id="cards"></div></div>
+  </div>
+  <div class="tableview" id="listview" style="display:none"><table class="wt"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  <div class="chartview" id="chartview" style="display:none">
+    <div class="chartbar">
+      <div class="ctl"><label>Window</label><div class="seg" id="rangeSeg"><button data-r="2">2 h</button><button data-r="6">6 h</button><button data-r="12">12 h</button><button data-r="24">24 h</button></div></div>
+      <div class="ctl"><label>Show</label><div class="seg" id="metricSeg"><button data-m="wind">Wind</button><button data-m="gust">Gusts</button><button data-m="both">Both</button></div></div>
+      <div class="chartlegend" id="chartlegend"></div>
+    </div>
+    <div class="chartwrap" id="chartwrap"></div>
+  </div>
+</div>
+
+<div class="footer"><span>Observed data only (no forecasts).</span><span>Sources: skytech.si launch anemometers + ARSO high stations. Auto-refreshes every 5 min from data.json; Open-Meteo model shown only if data goes stale.</span></div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // Live board: station data is fetched from data.json (written by the collector) on load and every 5 min.
+  var STATIONS=[];
+  var DATA_META={ generated:null, model:null };   // generated = ISO string of last collector run; model = Open-Meteo fallback reading
+  var STALE_MIN=30;                                // show MODEL fallback when data is older than this many minutes
+  var dataLoadedOnce=false;
+
+  var PALETTE=["#59c7e8","#f2c14e","#7ee081","#f2564a","#b58cf0","#4aa3ff","#ff9f68"];
+
+  var state={ unit:"ms", caution:13.6, danger:21.4, active:"all", view:"map", sortKey:"custom", sortDir:1,
+    chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"light",
+    order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[{id:"fav",name:"Favourites",builtin:true,members:[]}] };
+  var editingList=null, openPop=null, lastChart=null;
+
+  var UNIT_LABEL={kn:"kt",ms:"m/s",kmh:"km/h",mph:"mph"};
+  var FROM_KMH={kmh:1,kn:0.539957,ms:0.277778,mph:0.621371};
+  var COMPASS=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  var map, markers={};
+
+  function genHi(s){
+    // Real station: build history points from rw/rg arrays, anchored at the real observation time (obsTs), 10-min steps.
+    if(s.real){ var m=s.rw.length,rp=[],k; var anchor=s.obsTs||Date.now(); for(k=0;k<m;k++){ rp.push({t:anchor-(m-1-k)*600000, wind:s.rw[k], gust:s.rg[k]}); } s.hi=rp; s.wind=s.rw[m-1]; s.gust=s.rg[m-1]; if(!s.series||!s.series.length)s.series=s.rw.slice(-12); return; }
+    var n=145, pts=[], lvl=s.series[0], amp=Math.max(3,s.wind*0.5), i;
+    for(i=0;i<n;i++){ var diurnal=amp*Math.sin(i/n*Math.PI*3 + s.dir/40); var noise=(Math.random()*2-1)*amp*0.35;
+      lvl += (s.wind - lvl)*0.04; var wind=Math.max(0, lvl*0.6 + s.wind*0.4 + diurnal*0.5 + noise); var gust=wind*(1.4+Math.random()*0.4);
+      pts.push({t:Date.now()-(n-1-i)*10*60000, wind:wind, gust:gust}); }
+    pts[n-1].wind=s.wind; pts[n-1].gust=s.gust; s.hi=pts;
+  }
+
+  // Persistence: use Cowork window.storage if present (preview), else browser localStorage (GitHub Pages). Both guarded.
+  function loadStore(key){ return new Promise(function(res){
+    if(typeof window!=="undefined" && window.storage){
+      try{ window.storage.get(key,false).then(function(r){ try{res(r?JSON.parse(r.value):null);}catch(e){res(null);} }).catch(function(){res(null);}); }catch(e){res(null);}
+      return;
+    }
+    try{ var v=window.localStorage.getItem(key); res(v?JSON.parse(v):null); }catch(e){ res(null); }
+  });}
+  function saveStore(key,val){
+    if(typeof window!=="undefined" && window.storage){ try{ window.storage.set(key,JSON.stringify(val),false).catch(function(){}); }catch(e){} return; }
+    try{ window.localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
+  }
+  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir}); }
+
+  function disp(kmh){ return kmh*FROM_KMH[state.unit]; }
+  function knots(kmh){ return kmh*0.539957; }
+  function knotsToDisp(kt){ return (kt/0.539957)*FROM_KMH[state.unit]; }
+  function dispToKnots(v){ return (v/FROM_KMH[state.unit])*0.539957; }
+  function threshFmt(kt){ var v=knotsToDisp(kt); return state.unit==="ms"?(Math.round(v*2)/2).toFixed(1):String(Math.round(v)); }
+  function refreshThreshUI(){ var c=document.getElementById("caution"),d=document.getElementById("danger"),cu=document.getElementById("cautionUnit"),du=document.getElementById("dangerUnit"); if(c)c.value=threshFmt(state.caution); if(d)d.value=threshFmt(state.danger); if(cu)cu.textContent=UNIT_LABEL[state.unit]; if(du)du.textContent=UNIT_LABEL[state.unit]; }
+  function fmt(kmh){ if(kmh==null||isNaN(kmh))return "\u2013"; var v=disp(kmh); return state.unit==="ms"?v.toFixed(1):String(Math.round(v)); }
+  function statusOf(kmh){ if(kmh==null)return"none"; var k=knots(kmh); if(k>=state.danger)return"danger"; if(k>=state.caution)return"caution"; return"go"; }
+  function compass(d){ if(d==null||isNaN(d))return"\u2013"; return COMPASS[Math.round(d/22.5)%16]; }
+  function byId(id){ return STATIONS.filter(function(s){return s.id===id;})[0]; }
+  function listById(id){ return state.lists.filter(function(l){return l.id===id;})[0]; }
+  function fav(){ return listById("fav"); }
+  function inList(list,sid){ return list.members.indexOf(sid)>=0; }
+  function colorFor(s){ return PALETTE[STATIONS.indexOf(s)%PALETTE.length]; }
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function ageMinOf(s){ if(s.obsTs){ return Math.max(0,Math.round((Date.now()-s.obsTs)/60000)); } return (typeof s.ageMin==="number")?s.ageMin:null; }
+  function updatedStr(s){ var age=ageMinOf(s); var d=s.obsTs?new Date(s.obsTs):new Date(Date.now()-(age||0)*60000); return pad2(d.getHours())+":"+pad2(d.getMinutes())+(age==null?"":" ("+age+"m)"); }
+  function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+
+  function orderedAll(){ var seen={}; var out=state.order.map(byId).filter(function(s){ if(!s||seen[s.id])return false; seen[s.id]=1; return true; }); STATIONS.forEach(function(s){ if(!seen[s.id])out.push(s); }); return out; }
+  function visibleStations(){ var all=orderedAll(); if(state.active==="all")return all; var l=listById(state.active); return all.filter(function(s){ return l && l.members.indexOf(s.id)>=0; }); }
+
+  // ---- list tabs ----
+  function renderLists(){
+    var el=document.getElementById("lists"); var html="";
+    html+='<div class="ltab '+(state.active==="all"?"on":"")+'" data-list="all">All <span class="ct">'+STATIONS.length+'</span></div>';
+    state.lists.forEach(function(l){
+      if(editingList===l.id){ html+='<input class="newinput" data-rename="'+l.id+'" value="'+escapeHtml(l.name)+'">'; }
+      else{ var icon=l.builtin?"\u2605 ":""; html+='<div class="ltab '+(state.active===l.id?"on":"")+'" data-list="'+l.id+'">'+icon+escapeHtml(l.name)+' <span class="ct">'+l.members.length+'</span></div>'; }
+    });
+    var a=listById(state.active);
+    if(a && !a.builtin && editingList!==a.id){ html+='<span class="listmini"><button data-editlist="'+a.id+'">rename</button><button data-dellist="'+a.id+'">delete</button></span>'; }
+    if(editingList==="__new__"){ html+='<input class="newinput" id="newListInput" placeholder="List name\u2026">'; }
+    else{ html+='<div class="ltab newl" data-newlist="1">+ New list</div>'; }
+    el.innerHTML=html;
+    var ni=document.getElementById("newListInput");
+    if(ni){ ni.focus(); ni.addEventListener("keydown",function(e){ if(e.key==="Enter")commitNewList(ni.value); if(e.key==="Escape"){editingList=null;renderLists();} }); ni.addEventListener("blur",function(){ commitNewList(ni.value); }); }
+    var ri=el.querySelector("[data-rename]");
+    if(ri){ ri.focus(); ri.select&&ri.select(); var lid=ri.getAttribute("data-rename");
+      ri.addEventListener("keydown",function(e){ if(e.key==="Enter")ri.blur(); if(e.key==="Escape"){editingList=null;renderLists();} });
+      ri.addEventListener("blur",function(){ var l=listById(lid); if(l){l.name=ri.value.trim()||l.name;} editingList=null; persist(); renderLists(); }); }
+  }
+  function commitNewList(name){ name=(name||"").trim(); editingList=null;
+    if(name){ var id="l"+Math.random().toString(36).slice(2,7); state.lists.push({id:id,name:name,builtin:false,members:[]}); state.active=id; persist(); }
+    renderLists(); render(); }
+
+  // ---- card view ----
+  function compassSvg(dir){ var rot=(dir==null||isNaN(dir))?0:(dir+180);
+    return '<div class="compass"><svg viewBox="0 0 38 38"><circle class="ring" cx="19" cy="19" r="16"/><g class="arrow" style="transform:rotate('+rot+'deg)"><path d="M19 5 L24 22 L19 18 L14 22 Z"/></g></svg></div>'; }
+  function sparkSvg(series,status,w,h){
+    w=w||110; h=h||30; var pad=3,min=Math.min.apply(null,series),max=Math.max.apply(null,series),rng=(max-min)||1;
+    var col=status==="danger"?"var(--danger)":status==="caution"?"var(--caution)":"var(--go)";
+    var pts=series.map(function(v,i){ var x=pad+(i/(series.length-1))*(w-2*pad); var y=h-pad-((v-min)/rng)*(h-2*pad); return x.toFixed(1)+","+y.toFixed(1); }).join(" ");
+    var lx=pad+(w-2*pad), ly=h-pad-((series[series.length-1]-min)/rng)*(h-2*pad);
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="2.2" fill="'+col+'"/></svg>'; }
+  function badge(s){ return s.real?'<span class="live">LIVE</span>':'<span class="samp">sample</span>'; }
+  function srcTag(s,cls){ if(s.web) return '<a class="'+cls+'" href="'+s.web+'" target="_blank" rel="noopener">'+s.src+'</a>'; return '<span class="'+cls+'">'+s.src+'</span>'; }
+  function popHtml(s){
+    var rows=state.lists.map(function(l){ var checked=inList(l,s.id)?"checked":""; var icon=l.builtin?"\u2605 ":""; return '<label class="opt"><input type="checkbox" data-toggle="'+l.id+'" '+checked+'>'+icon+escapeHtml(l.name)+'</label>'; }).join("");
+    return '<div class="pop" data-pop="'+s.id+'"><h4>Add to lists</h4>'+rows+'<div class="div"></div><div class="newrow"><input placeholder="New list\u2026" data-popnew="'+s.id+'"><button data-popadd="'+s.id+'">Add</button></div></div>'; }
+  function cardHtml(s){
+    var st=statusOf(s.wind), gs=statusOf(s.gust), u=UNIT_LABEL[state.unit], isFav=inList(fav(),s.id);
+    var mn=Math.min.apply(null,s.series), mx=Math.max.apply(null,s.series);
+    return '<div class="card" data-id="'+s.id+'"><div class="head"><div>'+
+      '<div class="nrow"><button class="star '+(isFav?"on":"")+'" data-fav="'+s.id+'">'+(isFav?"\u2605":"\u2606")+'</button>'+
+      '<span class="name">'+escapeHtml(s.name)+'</span>'+srcTag(s,"src")+badge(s)+'<span class="elev">'+s.elev+'\u2009m</span></div></div>'+
+      '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'<button class="mini" data-lists="'+s.id+'">\u2630 Lists</button></div></div>'+
+      '<div class="cbody"><div class="cinfo">'+compassSvg(s.dir)+
+      '<div><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span><span class="dir-inline">from '+Math.round(s.dir)+'\u00b0 '+compass(s.dir)+'</span></div>'+
+      '<div class="ministats">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+' &middot; '+s.temp+'\u00b0 &middot; upd '+updatedStr(s)+'</div></div></div>'+
+      '<div class="cchart">'+sparkSvg(s.series,st,132,40)+'<div class="sparklab">12&#8202;h &middot; min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
+      (openPop===s.id?popHtml(s):"")+'</div>'; }
+  function renderCards(vis){
+    var wrap=document.getElementById("cards");
+    if(!vis.length){ wrap.innerHTML='<div class="sparklab" style="text-align:center;padding:30px 6px;font-size:13px">This list is empty. Open a station\u2019s \u2630 Lists and tick it in, or star it.</div>'; }
+    else{ wrap.innerHTML=vis.map(cardHtml).join(""); }
+  }
+
+  // ---- table view ----
+  var COLS=[{key:"name",label:"Station"},{key:"dir",label:"Dir"},{key:"wind",label:"Wind"},{key:"gust",label:"Gust"},{key:"temp",label:"Temp"},{key:"updated",label:"Updated"}];
+  function dirMini(dir){ var rot=(dir+180); return '<span class="dirmini"><svg width="15" height="15" viewBox="0 0 15 15"><g style="transform:rotate('+rot+'deg);transform-origin:7.5px 7.5px"><path d="M7.5 2 L10 10 L7.5 8.2 L5 10 Z" fill="var(--accent)"/></g></svg>'+compass(dir)+' '+Math.round(dir)+'\u00b0</span>'; }
+  function sortVal(s,key){ if(key==="name")return s.name.toLowerCase(); if(key==="dir")return s.dir; if(key==="wind")return s.wind; if(key==="gust")return s.gust; if(key==="temp")return s.temp; if(key==="updated")return ageMinOf(s); return 0; }
+  function renderTable(vis){
+    var u=UNIT_LABEL[state.unit];
+    var custOn=state.sortKey==="custom";
+    document.getElementById("thead").innerHTML='<tr><th class="'+(custOn?"sorted":"")+'" data-sort="custom" title="your order">#</th><th style="width:22px"></th>'+COLS.map(function(c){ var on=state.sortKey===c.key; var ar=on?(state.sortDir<0?'\u25bc':'\u25b2'):''; return '<th class="'+(on?"sorted":"")+'" data-sort="'+c.key+'">'+c.label+' <span class="ar">'+ar+'</span></th>'; }).join("")+'<th>12&#8202;h</th><th title="show on map">Map</th></tr>';
+    var rows=vis.slice();
+    if(!custOn){ rows.sort(function(a,b){ var av=sortVal(a,state.sortKey),bv=sortVal(b,state.sortKey); if(av<bv)return -1*state.sortDir; if(av>bv)return 1*state.sortDir; return 0; }); }
+    var tb=document.getElementById("tbody");
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
+    tb.innerHTML=rows.map(function(s){ var isFav=inList(fav(),s.id), ws=statusOf(s.wind), gs=statusOf(s.gust); var pos=state.order.indexOf(s.id)+1; var shown=!state.mapHidden[s.id];
+      return '<tr data-id="'+s.id+'"><td><input class="ordin" type="number" min="1" value="'+pos+'" data-ord="'+s.id+'"></td>'+
+        '<td class="starcell '+(isFav?"on":"")+'" data-fav="'+s.id+'">'+(isFav?"\u2605":"\u2606")+'</td>'+
+        '<td class="name">'+escapeHtml(s.name)+badge(s)+srcTag(s,"srcmini")+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
+        '<td>'+dirMini(s.dir)+'</td>'+
+        '<td class="w-'+ws+'">'+fmt(s.wind)+' '+u+'</td>'+
+        '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+'</td>'+
+        '<td>'+s.temp+'\u00b0</td>'+
+        '<td>'+updatedStr(s)+'</td>'+
+        '<td class="spark">'+sparkSvg(s.series,ws,84,22)+'</td>'+
+        '<td><span class="eye '+(shown?"":"off")+'" data-eye="'+s.id+'" title="'+(shown?"shown on map":"hidden from map")+'">'+(shown?"\u25c9":"\u25cb")+'</span></td></tr>'; }).join("");
+  }
+
+  // ---- chart view ----
+  function computeMaxY(){ var m=1; visibleStations().forEach(function(s){ s.hi.forEach(function(p){ var a=disp(p.wind), b=disp(p.gust); if(a>m)m=a; if(b>m)m=b; }); }); return m*1.1; }
+  function tickStepH(range){ return range<=2?0.5:range<=6?1:range<=12?2:4; }
+  function renderChart(){
+    var wrap=document.getElementById("chartwrap");
+    var all=visibleStations(), range=state.chartRange, since=Date.now()-range*3600000, now=Date.now(), metric=state.chartMetric, u=UNIT_LABEL[state.unit];
+    document.getElementById("chartlegend").innerHTML=all.map(function(s){ var off=state.chartHidden[s.id]?"off":""; return '<span class="lchip '+off+'" data-legend="'+s.id+'"><span class="dot" style="background:'+colorFor(s)+'"></span>'+escapeHtml(s.name)+'</span>'; }).join("");
+    var rows=all.map(function(s){ var pts=s.hi.filter(function(p){return p.t>=since;}).map(function(p){ return {t:p.t, wind:disp(p.wind), gust:disp(p.gust)}; }); return {s:s, pts:pts}; });
+    var maxY=computeMaxY();
+    var W=1000,H=420,mL=46,mR=64,mT=14,mB=28,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
+    function X(t){ return x0+(t-since)/(now-since)*(x1-x0); }
+    function Y(v){ return y1-(v/maxY)*(y1-y0); }
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+    var i;
+    for(i=0;i<=4;i++){ var v=maxY*i/4, y=Y(v); svg+='<line x1="'+x0+'" y1="'+y.toFixed(1)+'" x2="'+x1+'" y2="'+y.toFixed(1)+'" stroke="#22324a" stroke-width="1"/><text x="'+(x0-6)+'" y="'+(y+3).toFixed(1)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11" text-anchor="end">'+(state.unit==="ms"?v.toFixed(1):Math.round(v))+'</text>'; }
+    var stepMs=tickStepH(range)*3600000, first=Math.ceil(since/stepMs)*stepMs;
+    for(var t=first;t<=now;t+=stepMs){ var x=X(t), d=new Date(t); svg+='<line x1="'+x.toFixed(1)+'" y1="'+y0+'" x2="'+x.toFixed(1)+'" y2="'+y1+'" stroke="#1b2a3e" stroke-width="1"/><text x="'+x.toFixed(1)+'" y="'+(y1+16)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</text>'; }
+    var cD=knotsToDisp(state.caution), dD=knotsToDisp(state.danger);
+    if(cD<=maxY){ svg+='<line x1="'+x0+'" y1="'+Y(cD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(cD).toFixed(1)+'" stroke="var(--caution)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>'; }
+    if(dD<=maxY){ svg+='<line x1="'+x0+'" y1="'+Y(dD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(dD).toFixed(1)+'" stroke="var(--danger)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>'; }
+    function poly(pts,key,dash,col){ if(pts.length<2)return""; var p=pts.map(function(q){ return X(q.t).toFixed(1)+","+Y(q[key]).toFixed(1); }).join(" "); return '<polyline points="'+p+'" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linejoin="round"'+(dash?' stroke-dasharray="2 4"':'')+'/>'; }
+    rows.forEach(function(r){ if(state.chartHidden[r.s.id]||!r.pts.length)return; var col=colorFor(r.s);
+      if(metric==="wind"||metric==="both"){ svg+=poly(r.pts,"wind",false,col); }
+      if(metric==="gust"){ svg+=poly(r.pts,"gust",false,col); }
+      if(metric==="both"){ svg+=poly(r.pts,"gust",true,col); }
+      var lp=r.pts[r.pts.length-1], lk=(metric==="gust")?"gust":"wind", lx=X(lp.t), ly=Y(lp[lk]);
+      svg+='<text x="'+(lx+4).toFixed(1)+'" y="'+(ly+3).toFixed(1)+'" fill="'+col+'" font-family="IBM Plex Sans" font-size="12" font-weight="600" text-anchor="start">'+escapeHtml(r.s.name)+'</text>'; });
+    svg+='<text x="'+x0+'" y="'+(y0-3)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11">'+(metric==="gust"?"gusts":metric==="both"?"wind (solid) + gusts (dotted)":"wind")+' ('+u+')</text>';
+    svg+='</svg><div class="chair" id="chair"></div><div class="ctip" id="ctip"></div>';
+    wrap.innerHTML=svg;
+    lastChart={since:since,now:now,x0:x0,x1:x1,W:W,rows:rows};
+  }
+
+  function chartMove(e){
+    if(!lastChart)return; var wrap=document.getElementById("chartwrap"); var rect=wrap.getBoundingClientRect();
+    var px=e.clientX-rect.left; var vbX=px/rect.width*lastChart.W;
+    var chair=document.getElementById("chair"), tip=document.getElementById("ctip");
+    if(vbX<lastChart.x0||vbX>lastChart.x1){ if(chair)chair.style.display="none"; if(tip)tip.style.display="none"; return; }
+    var t=lastChart.since+(vbX-lastChart.x0)/(lastChart.x1-lastChart.x0)*(lastChart.now-lastChart.since);
+    var vis=lastChart.rows.filter(function(r){ return !state.chartHidden[r.s.id] && r.pts.length; });
+    if(!vis.length){ if(chair)chair.style.display="none"; if(tip)tip.style.display="none"; return; }
+    var ref=vis[0].pts, bi=0, bd=Infinity; for(var i=0;i<ref.length;i++){ var dd=Math.abs(ref[i].t-t); if(dd<bd){bd=dd;bi=i;} }
+    var T=ref[bi].t; var snapX=(lastChart.x0+(T-lastChart.since)/(lastChart.now-lastChart.since)*(lastChart.x1-lastChart.x0))/lastChart.W*rect.width;
+    if(chair){ chair.style.display="block"; chair.style.left=snapX.toFixed(1)+"px"; }
+    var u=UNIT_LABEL[state.unit], d=new Date(T);
+    var body='<div class="th">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</div>';
+    vis.forEach(function(r){ var p=r.pts[bi]||r.pts[r.pts.length-1]; var col=colorFor(r.s);
+      body+='<div class="cr"><span class="nm"><span class="dot" style="background:'+col+'"></span>'+escapeHtml(r.s.name)+'</span><span class="vv">'+(state.unit==="ms"?p.wind.toFixed(1):Math.round(p.wind))+' <span style="color:var(--ink-faint)">g'+(state.unit==="ms"?p.gust.toFixed(1):Math.round(p.gust))+'</span> '+u+'</span></div>'; });
+    tip.innerHTML=body; tip.style.display="block";
+    var tw=tip.offsetWidth||170; var left=snapX+14; if(left+tw>rect.width) left=snapX-tw-14; if(left<4)left=4;
+    tip.style.left=left.toFixed(1)+"px"; tip.style.top="12px";
+  }
+  function chartLeave(){ var c=document.getElementById("chair"), t=document.getElementById("ctip"); if(c)c.style.display="none"; if(t)t.style.display="none"; }
+
+  function render(){ var vis=visibleStations();
+    if(state.view==="map"){ renderCards(vis); renderMarkers(vis); }
+    else if(state.view==="list"){ renderTable(vis); }
+    else{ renderChart(); }
+  }
+
+  // ---- wind-barb markers ----
+  function barbGroup(kt){
+    var L=17, bl=8, sp=4.2, dark="#0d151f"; var spd=Math.round(kt/5)*5; if(spd<2.5) return "";
+    var pen=Math.floor(spd/50), rem=spd-pen*50, full=Math.floor(rem/10), half=Math.floor((rem-full*10)/5);
+    var prim=[]; prim.push({t:"line",x1:0,y1:0,x2:0,y2:-L}); var pos=L, i;
+    for(i=0;i<pen;i++){ prim.push({t:"poly",pts:[[0,-pos],[0,-(pos-sp*1.5)],[-bl,-(pos-sp*0.75)]]}); pos-=sp*1.7; }
+    for(i=0;i<full;i++){ prim.push({t:"line",x1:0,y1:-pos,x2:-bl,y2:-(pos-bl*0.55)}); pos-=sp; }
+    for(i=0;i<half;i++){ if(pen===0&&full===0){ pos-=sp; } prim.push({t:"line",x1:0,y1:-pos,x2:-bl*0.5,y2:-(pos-bl*0.28)}); pos-=sp; }
+    function draw(color,w){ return prim.map(function(p){ if(p.t==="line") return '<line x1="'+p.x1+'" y1="'+p.y1.toFixed(1)+'" x2="'+p.x2.toFixed(1)+'" y2="'+p.y2.toFixed(1)+'" stroke="'+color+'" stroke-width="'+w+'" stroke-linecap="round"/>'; return '<polygon points="'+p.pts.map(function(q){return q[0]+","+q[1].toFixed(1);}).join(" ")+'" fill="'+color+'" stroke="'+color+'" stroke-width="'+(w*0.5)+'" stroke-linejoin="round"/>'; }).join(""); }
+    return draw(dark,3.4)+draw("#fff",1.6);
+  }
+  function windMarkerHtml(s){
+    var kt=knots(s.wind), barb=kt<2.5?"":barbGroup(kt);
+    var circle='<circle cx="0" cy="0" r="3.2" fill="#0d151f" stroke="#0d151f" stroke-width="3"/><circle cx="0" cy="0" r="3.2" fill="none" stroke="#fff" stroke-width="1.5"/>';
+    var svg='<svg width="52" height="52" viewBox="0 0 52 52"><g transform="translate(26,26)"><g transform="rotate('+s.dir+')">'+barb+'</g>'+circle+'</g></svg>';
+    return '<div class="wm">'+svg+'<div class="wm-top">'+escapeHtml(s.name)+'</div><div class="wm-bot"><span class="b">'+fmt(s.wind)+'</span><span class="g">g'+fmt(s.gust)+'</span></div></div>';
+  }
+  function windIcon(s){ return L.divIcon({className:"",iconSize:[84,86],iconAnchor:[42,26],popupAnchor:[0,-24],html:windMarkerHtml(s)}); }
+  function renderMarkers(vis){
+    if(!map)return; vis=vis.filter(function(s){ return !state.mapHidden[s.id]; });
+    var visIds=vis.map(function(s){return s.id;});
+    Object.keys(markers).forEach(function(id){ if(visIds.indexOf(id)<0){ map.removeLayer(markers[id]); delete markers[id]; } });
+    vis.forEach(function(s){
+      if(markers[s.id]){ markers[s.id].setIcon(windIcon(s)); }
+      else{ var m=L.marker([s.lat,s.lon],{icon:windIcon(s)}).addTo(map);
+        m.on("mouseover",function(){ var el=document.querySelector('.card[data-id="'+s.id+'"]'); if(el){ el.classList.add("hl"); el.scrollIntoView({behavior:"smooth",block:"nearest"}); } });
+        m.on("mouseout",function(){ var el=document.querySelector('.card[data-id="'+s.id+'"]'); if(el)el.classList.remove("hl"); });
+        markers[s.id]=m; }
+    });
+  }
+
+  // ---- webcams ----
+  function camCard(s){ return '<div class="cam"><div class="feed">'+escapeHtml(s.name)+' webcam</div><div class="cap"><span>'+escapeHtml(s.name)+'</span>'+(s.camUrl?'<a href="'+s.camUrl+'" target="_blank" rel="noopener">open source \u2197</a>':'')+'</div></div>'; }
+  function openCams(single){ var cams=single?[byId(single)]:STATIONS.filter(function(s){return s.cam;});
+    document.getElementById("modal").innerHTML='<div class="mhead"><h3>'+(single?escapeHtml(cams[0].name)+" webcam":"So\u010da valley webcams")+'</h3><button class="close" data-close="1">\u2715</button></div><div class="camgrid">'+cams.map(camCard).join("")+'</div><div class="sparklab" style="margin-top:12px;font-size:11.5px">Preview placeholders. The real app shows live cam images/streams here.</div>';
+    document.getElementById("overlay").classList.add("open"); }
+  function closeCams(){ document.getElementById("overlay").classList.remove("open"); }
+
+  var BASEMAPS={
+    light:{url:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",opts:{maxZoom:19,subdomains:"abcd",attribution:"\u00a9 OpenStreetMap \u00a9 CARTO"}},
+    terrain:{url:"https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",opts:{maxZoom:17,subdomains:"abc",attribution:"\u00a9 OpenStreetMap, SRTM | \u00a9 OpenTopoMap"}},
+    satellite:{url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",opts:{maxZoom:19,attribution:"Imagery \u00a9 Esri"}},
+    dark:{url:"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",opts:{maxZoom:19,subdomains:"abcd",attribution:"\u00a9 OpenStreetMap \u00a9 CARTO"}}
+  };
+  var tileLayer=null;
+  function setBasemap(key,save){ if(!map)return; var b=BASEMAPS[key]||BASEMAPS.light; if(tileLayer)map.removeLayer(tileLayer); tileLayer=L.tileLayer(b.url,b.opts).addTo(map); state.basemap=key; var sel=document.getElementById("basemapSel"); if(sel)sel.value=key; if(save)persist(); }
+
+  function setSeg(id,attr,val){ document.querySelectorAll("#"+id+" button").forEach(function(b){ b.classList.toggle("on",b.getAttribute(attr)===String(val)); }); }
+  function applyView(){
+    document.getElementById("mapview").style.display=state.view==="map"?"":"none";
+    document.getElementById("listview").style.display=state.view==="list"?"":"none";
+    document.getElementById("chartview").style.display=state.view==="chart"?"":"none";
+    document.getElementById("legend").style.display=state.view==="map"?"":"none";
+    if(state.view==="map"&&map){ setTimeout(function(){ map.invalidateSize(); },60); }
+  }
+  function toggleMember(listId,sid){ if(!sid)return; var l=listById(listId); if(!l)return; var i=l.members.indexOf(sid); if(i>=0)l.members.splice(i,1); else l.members.push(sid); persist(); renderLists(); render(); }
+  function addListWith(name,sid){ name=(name||"").trim(); if(!name)return; var id="l"+Math.random().toString(36).slice(2,7); state.lists.push({id:id,name:name,builtin:false,members:sid?[sid]:[]}); persist(); renderLists(); render(); }
+  function reorder(id,newPos){ var arr=state.order.slice(); var cur=arr.indexOf(id); if(cur>=0)arr.splice(cur,1); newPos=Math.max(1,Math.min(arr.length+1,newPos)); arr.splice(newPos-1,0,id); state.order=arr; state.sortKey="custom"; persist(); render(); }
+
+  function wire(){
+    document.getElementById("viewSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.view=b.getAttribute("data-v"); setSeg("viewSeg","data-v",state.view); applyView(); render(); });
+    document.getElementById("unitSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.unit=b.getAttribute("data-u"); setSeg("unitSeg","data-u",state.unit); persist(); refreshThreshUI(); render(); });
+    document.getElementById("rangeSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.chartRange=+b.getAttribute("data-r"); setSeg("rangeSeg","data-r",state.chartRange); persist(); renderChart(); });
+    document.getElementById("metricSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.chartMetric=b.getAttribute("data-m"); setSeg("metricSeg","data-m",state.chartMetric); persist(); renderChart(); });
+    document.getElementById("chartlegend").addEventListener("click",function(e){ var c=e.target.closest("[data-legend]"); if(!c)return; var id=c.getAttribute("data-legend"); state.chartHidden[id]=!state.chartHidden[id]; renderChart(); });
+    var cw=document.getElementById("chartwrap"); cw.addEventListener("mousemove",chartMove); cw.addEventListener("mouseleave",chartLeave);
+    var cEl=document.getElementById("caution"), dEl=document.getElementById("danger");
+    cEl.addEventListener("change",function(){ state.caution=dispToKnots(+cEl.value||0); persist(); refreshThreshUI(); render(); });
+    dEl.addEventListener("change",function(){ state.danger=dispToKnots(+dEl.value||0); persist(); refreshThreshUI(); render(); });
+    document.getElementById("refresh").addEventListener("click",function(){ var ic=document.getElementById("refIcon"); if(ic)ic.textContent="…"; loadData().then(function(){ if(ic)ic.textContent="↻"; }); });
+    document.getElementById("camsBtn").addEventListener("click",function(){ openCams(null); });
+    document.getElementById("overlay").addEventListener("click",function(e){ if(e.target.id==="overlay"||e.target.getAttribute("data-close"))closeCams(); });
+
+    document.getElementById("lists").addEventListener("click",function(e){
+      var t=e.target.closest("[data-list]"); if(t){ state.active=t.getAttribute("data-list"); persist(); renderLists(); render(); return; }
+      if(e.target.closest("[data-newlist]")){ editingList="__new__"; renderLists(); return; }
+      var ed=e.target.closest("[data-editlist]"); if(ed){ editingList=ed.getAttribute("data-editlist"); renderLists(); return; }
+      var dl=e.target.closest("[data-dellist]"); if(dl){ var id=dl.getAttribute("data-dellist"); state.lists=state.lists.filter(function(l){return l.id!==id;}); if(state.active===id)state.active="all"; persist(); renderLists(); render(); return; }
+    });
+    document.getElementById("cards").addEventListener("click",function(e){
+      var fv=e.target.closest("[data-fav]"); if(fv){ toggleMember("fav",fv.getAttribute("data-fav")); return; }
+      var cm=e.target.closest("[data-cam]"); if(cm){ openCams(cm.getAttribute("data-cam")); return; }
+      var lb=e.target.closest("[data-lists]"); if(lb){ var id=lb.getAttribute("data-lists"); openPop=(openPop===id?null:id); render(); return; }
+      var tg=e.target.closest("[data-toggle]"); if(tg){ toggleMember(tg.getAttribute("data-toggle"),openPop); return; }
+      var pa=e.target.closest("[data-popadd]"); if(pa){ var sid=pa.getAttribute("data-popadd"); var inp=document.querySelector('[data-popnew="'+sid+'"]'); addListWith(inp?inp.value:"",sid); return; }
+    });
+    document.getElementById("cards").addEventListener("keydown",function(e){ var inp=e.target.closest("[data-popnew]"); if(inp&&e.key==="Enter")addListWith(inp.value,inp.getAttribute("data-popnew")); });
+
+    var lv=document.getElementById("listview");
+    lv.addEventListener("click",function(e){
+      var th=e.target.closest("[data-sort]"); if(th){ var k=th.getAttribute("data-sort"); if(k==="custom"){ state.sortKey="custom"; } else if(state.sortKey===k){ state.sortDir*=-1; } else { state.sortKey=k; state.sortDir=(k==="name")?1:-1; } persist(); render(); return; }
+      var fv=e.target.closest("[data-fav]"); if(fv){ toggleMember("fav",fv.getAttribute("data-fav")); return; }
+      var cm=e.target.closest("[data-cam]"); if(cm){ openCams(cm.getAttribute("data-cam")); return; }
+      var ey=e.target.closest("[data-eye]"); if(ey){ var id=ey.getAttribute("data-eye"); state.mapHidden[id]=!state.mapHidden[id]; persist(); renderTable(visibleStations()); return; }
+    });
+    lv.addEventListener("change",function(e){ var oi=e.target.closest("[data-ord]"); if(oi){ reorder(oi.getAttribute("data-ord"), parseInt(oi.value,10)||1); } });
+
+    document.addEventListener("click",function(e){ if(openPop && !e.target.closest(".pop") && !e.target.closest("[data-lists]")){ openPop=null; render(); } });
+  }
+
+  function initMap(){ map=L.map("map",{zoomControl:true}).setView([46.31,13.62],10);
+    setBasemap(state.basemap,false);
+    var ctrl=L.control({position:"topright"});
+    ctrl.onAdd=function(){ var d=L.DomUtil.create("div","map-ctrl"); d.innerHTML='<select id="basemapSel"><option value="light">Light</option><option value="terrain">Terrain</option><option value="satellite">Satellite</option><option value="dark">Dark</option></select>'; L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d); return d; };
+    ctrl.addTo(map);
+    var sel=document.getElementById("basemapSel"); if(sel){ sel.value=state.basemap; sel.addEventListener("change",function(e){ setBasemap(e.target.value,true); }); }
+    setTimeout(function(){ map.invalidateSize(); },200); window.addEventListener("resize",function(){ if(map)map.invalidateSize(); }); }
+
+  // ---- live data.json loading + fallback ----
+  function fmtClock(ts){ if(!ts)return"–"; var d=new Date(ts); return pad2(d.getHours())+":"+pad2(d.getMinutes()); }
+  function fetchModel(){
+    return fetch('https://api.open-meteo.com/v1/forecast?latitude=46.33&longitude=13.55&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=ms')
+      .then(function(r){ if(!r.ok)throw 0; return r.json(); })
+      .then(function(j){ var c=j.current||{}; DATA_META.model={ windKmh:(c.wind_speed_10m||0)*3.6, gustKmh:(c.wind_gusts_10m||0)*3.6, dir:c.wind_direction_10m||0, t:Date.now() }; return DATA_META.model; })
+      .catch(function(){ DATA_META.model=null; return null; });
+  }
+  function updateStaleUI(){
+    var banner=document.getElementById("banner"); if(!banner)return;
+    var gen=DATA_META.generated?Date.parse(DATA_META.generated):null;
+    var ageMin=gen?Math.round((Date.now()-gen)/60000):null;
+    var stale=(!STATIONS.length)||(ageMin==null)||(ageMin>STALE_MIN);
+    if(!stale){ banner.className="banner"; banner.innerHTML='<strong>Pure Mountain Weather</strong> &mdash; live observed wind, Soča valley. Updated '+fmtClock(gen)+' ('+ageMin+'m ago).'; return; }
+    banner.className="banner stale";
+    var lastTxt=gen?('last observed update '+fmtClock(gen)+' ('+ageMin+'m ago)'):'no observed data loaded';
+    var m=DATA_META.model;
+    if(m){ banner.innerHTML='⚠ Observed data STALE — '+lastTxt+'. Showing <strong>MODEL</strong> wind for Bovec DZ: '+fmt(m.windKmh)+' '+UNIT_LABEL[state.unit]+', gust '+fmt(m.gustKmh)+', from '+Math.round(m.dir)+'° '+compass(m.dir)+' — <strong>MODEL, not observed.</strong>'; }
+    else { banner.innerHTML='⚠ Observed data STALE — '+lastTxt+'. (Model fallback unavailable — check back shortly.)'; }
+  }
+  function decideFallback(){
+    var gen=DATA_META.generated?Date.parse(DATA_META.generated):null;
+    var ageMin=gen?Math.round((Date.now()-gen)/60000):null;
+    var stale=(!STATIONS.length)||(ageMin==null)||(ageMin>STALE_MIN);
+    if(stale && (!DATA_META.model || (Date.now()-DATA_META.model.t)>5*60000)){ fetchModel().then(updateStaleUI); }
+    updateStaleUI();
+  }
+  function ingest(arr){
+    arr.forEach(function(s){ if(!s.series||!s.series.length){ s.series=(s.rw&&s.rw.length)?s.rw.slice(-12):[s.wind||0,s.wind||0]; } genHi(s); });
+    STATIONS=arr;
+    var ids=STATIONS.map(function(s){return s.id;});
+    var kept=state.order.filter(function(id){return ids.indexOf(id)>=0;});
+    ids.forEach(function(id){ if(kept.indexOf(id)<0)kept.push(id); });
+    state.order=kept; dataLoadedOnce=true;
+  }
+  function loadData(){
+    return fetch('data.json?ts='+Date.now(),{cache:'no-store'})
+      .then(function(r){ if(!r.ok)throw new Error('http '+r.status); return r.json(); })
+      .then(function(j){ var arr=Array.isArray(j)?j:(j.stations||[]); DATA_META.generated=(j&&j.generated)?j.generated:new Date().toISOString(); ingest(arr); render(); decideFallback(); })
+      .catch(function(){ if(!dataLoadedOnce){ DATA_META.generated=null; STATIONS=[]; } render(); decideFallback(); });
+  }
+
+  function boot(){
+    Promise.all([loadStore("pmw_lists"),loadStore("pmw_settings")]).then(function(v){
+      if(v[0]&&v[0].length){ state.lists=v[0]; if(!listById("fav"))state.lists.unshift({id:"fav",name:"Favourites",builtin:true,members:[]}); }
+      if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir; }
+      setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric);
+      refreshThreshUI();
+      initMap(); wire(); applyView(); renderLists(); render();
+      loadData(); setInterval(loadData, 5*60000);
+    });
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",boot); } else { boot(); }
+})();
+</script>
