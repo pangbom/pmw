@@ -47,5 +47,10 @@ jobs:
             echo "No change in data.json"
           else
             git commit -m "refresh wind data $(date -u +%FT%TZ)"
-            git push
+            # Push with rebase-retry so a concurrent push (e.g. a manual edit) can't fail the run.
+            for i in 1 2 3 4 5; do
+              if git push; then echo "pushed"; break; fi
+              echo "push rejected, rebasing (attempt $i)"; git pull --rebase --autostash origin main || true
+              sleep 3
+            done
           fi
