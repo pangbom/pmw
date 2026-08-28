@@ -25,18 +25,16 @@ const SKY_META = {
 };
 
 // ---- ARSO official high stations ----
-// Verified codes: KANIN + VOGEL report data; BOVEC exists but is often "no data";
-// KREDARICA 404s (no such AMS file) so it is not listed. Stations with no current
-// readings are skipped automatically below.
-const ARSO = [
-  { code: 'KANIN', name: 'Kanin (ARSO)', lat: 46.3585, lon: 13.4746, elev: 2260 },
-  { code: 'VOGEL', name: 'Vogel (ARSO)', lat: 46.2597, lon: 13.8404, elev: 1515 },
-  { code: 'BOVEC', name: 'Bovec valley (ARSO)', lat: 46.3306, lon: 13.5546, elev: 452 },
+// Pulled from ARSO's own JSON observations API (vreme.si) rather than scraping HTML — clean,
+// robust, and it carries full wind history (ff=speed km/h, ffmax=gust km/h, dd=direction deg)
+// plus coordinates. Kredarica lives here too (its per-station HTML file uses the odd code
+// "KREDA-ICA"; the API by name is far simpler). Bovec valley returns nothing here (offline).
+const ARSO_LOCS = [
+  { loc: 'Kanin',     name: 'Kanin (ARSO)',     elev: 2260 },
+  { loc: 'Vogel',     name: 'Vogel (ARSO)',     elev: 1515 },
+  { loc: 'Kredarica', name: 'Kredarica (ARSO)', elev: 2514 },
 ];
-const ARSO_URL = c => `https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_${c}_history.html`;
-// Kredarica has NO individual history file (all code variants 404), but it IS in ARSO's
-// combined current-conditions table — so we pull its current reading from there (no 6h history).
-const ARSO_COMBINED = 'https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_si_latest.html';
+const ARSO_API = loc => `https://www.vreme.si/api/1.0/location/observations/?location=${encodeURIComponent(loc)}&lang=sl`;
 
 // ---- Wunderground personal weather stations (PWS) ----
 // Needs a WU API key, supplied at runtime via the WU_KEY env var (GitHub Actions secret) —
@@ -70,65 +68,40 @@ async function collectSkytech(page) {
       if (row) { curWms=parseFloat(row[1]); curGms=parseFloat(row[2]); dirStr=row[3]; temp=parseFloat(row[4]); ts=parseTs(row[5]); }
       if (rw.length < 2) { const w = curWms!=null?+(curWms*3.6).toFixed(1):0, g = curGms!=null?+(curGms*3.6).toFixed(1):0; rw=[w,w]; rg=[g,g]; }
       const dir = (dirStr!=null && DIRMAP[dirStr]!=null) ? DIRMAP[dirStr] : 0;
-      out.push({ id:'sky_'+id.slice(0,8), name:meta.name, src:'skytech', web:'https://skytech.si/', lat:meta.lat, lon:meta.lon, elev:meta.elev, temp:temp!=null?temp:null, dir, real:true, rw, rg, series:rw.slice(-12), gust:rg[rg.length-1], obsTs:ts, cam:false, camUrl:'' });
+      out.push({ id:'sky_'+id.slice(0,8), name:meta.name, src:'skytech', web:'https://skytech.si/', lat:meta.lat, lon:meta.lon, elev:meta.elev, temp:temp!=null?temp:null, dir, real:true, rw, rg, series:rw.slice(-12), gust:rg[rg.length-1], obsTs:ts, stepMs:600000, cam:false, camUrl:'' });
     }
     return out;
   }, SKY_META);
 }
 
-async function collectArso(page, st) {
-  try {
-    await page.goto(ARSO_URL(st.code), { waitUntil: 'domcontentloaded', timeout: 60000 });
-    const r = await page.evaluate(() => {
-      const t = document.querySelector('table'); if(!t) return null;
-      if(/niso na voljo/i.test(t.textContent)) return null; // "data currently not available"
-      const rows = [...t.querySelectorAll('tr')];
-      const hdr = [...rows[0].querySelectorAll('th,td')].map(c=>c.textContent.trim());
-      // ARSO headers appear in English OR Slovenian depending on the page/time — match both.
-      const find = re => hdr.findIndex(h=>re.test(h.toLowerCase()));
-      const iTemp=find(/temperatur/), iWind=find(/hitrost vetra|wind speed/), iDir=find(/smer vetra|wind.*°|direction/), iGust=find(/sunki|wind gust/);
-      if(iWind<0 || iGust<0) return null;
-      const num = v => { const n=parseFloat((v||'').replace(',','.')); return isNaN(n)?null:n; };
-      const data = rows.slice(1).map(tr=>[...tr.querySelectorAll('td,th')].map(c=>c.textContent.trim()));
-      const recent = data.slice(0,36).reverse();
-      if(!recent.length) return null;
-      const rw = recent.map(r=>{const n=num(r[iWind]);return n==null?0:n;});
-      const rg = recent.map(r=>{const n=num(r[iGust]);return n==null?0:n;});
-      if(!rw.some(v=>v>0) && !rg.some(v=>v>0)) return null; // no real readings -> skip station
-      const newest = recent[recent.length-1];
-      const tm = (newest[0]||'').match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})/);
-      const obsTs = tm ? Date.UTC(+tm[3],+tm[2]-1,+tm[1],+tm[4]-2,+tm[5]) : null;
-      return { temp:num(newest[iTemp]), dir:num(newest[iDir])||0, rw, rg, series:rw.slice(-12), gust:rg[rg.length-1], obsTs };
-    });
-    if(!r) { console.error('ARSO', st.code, 'no usable data — skipped'); return null; }
-    return { id:'arso_'+st.code.toLowerCase(), name:st.name, src:'ARSO', web:'https://meteo.arso.gov.si/', lat:st.lat, lon:st.lon, elev:st.elev, real:true, cam:false, camUrl:'', ...r };
-  } catch(e) { console.error('ARSO', st.code, 'failed:', e.message); return null; }
+// median gap (ms) between consecutive timestamps — used so the board plots history at the
+// station's real cadence (skytech/ARSO ~10 min, Kredarica ~30 min, WU ~5 min).
+function medianStep(times){
+  const d=[]; for(let i=1;i<times.length;i++){ const g=times[i]-times[i-1]; if(g>0) d.push(g); }
+  if(!d.length) return 600000; d.sort((a,b)=>a-b); return d[Math.floor(d.length/2)];
 }
 
-// Kredarica: current-only, parsed from ARSO's combined table (no per-station history file exists).
-async function collectKredarica(page) {
+// ARSO via the official JSON observations API (vreme.si). Full history, coords included.
+async function collectArso(st) {
   try {
-    await page.goto(ARSO_COMBINED, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    const r = await page.evaluate(() => {
-      const rows = [...document.querySelectorAll('tr')];
-      if(!rows.length) return null;
-      const hdr = [...rows[0].querySelectorAll('th,td')].map(c=>c.textContent.trim());
-      const find = re => hdr.findIndex(h=>re.test(h.toLowerCase()));
-      const iTemp=find(/temperatur/), iWind=find(/hitrost vetra|wind speed/), iDir=find(/smer vetra|wind.*°|direction/), iGust=find(/sunki|wind gust/);
-      const num = v => { const n=parseFloat((v||'').replace(',','.')); return isNaN(n)?null:n; };
-      let row=null;
-      for(const rr of rows){ const c=rr.querySelector('td,th'); if(c && /kredarica/i.test(c.textContent)){ row=[...rr.querySelectorAll('td,th')].map(x=>x.textContent.trim()); break; } }
-      if(!row) return null;
-      const tm = document.body.textContent.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})/);
-      const obsTs = tm ? Date.UTC(+tm[3],+tm[2]-1,+tm[1],+tm[4]-2,+tm[5]) : null;
-      const w=num(row[iWind]), g=num(row[iGust]);
-      if(w==null && g==null) return null;
-      return { w: w==null?0:w, g: g==null?0:g, dir: num(row[iDir]), temp: num(row[iTemp]), obsTs };
-    });
-    if(!r) { console.error('Kredarica: no data'); return null; }
-    return { id:'arso_kredarica', name:'Kredarica (ARSO)', src:'ARSO', web:'https://meteo.arso.gov.si/', lat:46.3789, lon:13.8489, elev:2514,
-      real:true, cam:false, camUrl:'', temp:r.temp, dir:r.dir==null?0:r.dir, rw:[r.w,r.w], rg:[r.g,r.g], series:[r.w,r.w], gust:r.g, obsTs:r.obsTs };
-  } catch(e) { console.error('Kredarica failed:', e.message); return null; }
+    const j = await fetch(ARSO_API(st.loc)).then(r=>r.json());
+    const f = j.features && j.features[0];
+    if(!f) { console.error('ARSO', st.loc, 'no feature'); return null; }
+    const num = v => { const n=parseFloat(String(v==null?'':v).replace(',','.')); return isNaN(n)?null:n; };
+    let all = [].concat(...((f.properties.days)||[]).map(d=>d.timeline||[]))
+      .filter(p => p.valid && p.ff_val!=='' && p.ff_val!=null)
+      .sort((a,b)=>Date.parse(a.valid)-Date.parse(b.valid));
+    if(!all.length) { console.error('ARSO', st.loc, 'no wind points'); return null; }
+    const recent = all.slice(-36);
+    const rw = recent.map(p=>{ const n=num(p.ff_val); return n==null?0:n; });
+    const rg = recent.map(p=>{ const n=num(p.ffmax_val); return n==null?(num(p.ff_val)||0):n; });
+    const times = recent.map(p=>Date.parse(p.valid));
+    const newest = recent[recent.length-1];
+    const coords = (f.geometry && f.geometry.coordinates) || [null,null];
+    return { id:'arso_'+st.loc.toLowerCase(), name:st.name, src:'ARSO', web:'https://www.vreme.si/', lat:coords[1], lon:coords[0], elev:st.elev,
+      real:true, cam:false, camUrl:'', temp:num(newest.t), dir:num(newest.dd_val)==null?0:num(newest.dd_val),
+      rw, rg, series:rw.slice(-12), gust:rg[rg.length-1], obsTs:Date.parse(newest.valid), stepMs:medianStep(times) };
+  } catch(e) { console.error('ARSO', st.loc, 'failed:', e.message); return null; }
 }
 
 // Wunderground PWS — server-side JSON API (needs WU_KEY). Returns current + ~3h of 5-min history.
@@ -141,21 +114,22 @@ async function collectWU(id) {
     const o = cur.observations && cur.observations[0];
     if(!o) { console.error('WU', id, 'no current obs'); return null; }
     const m = o.metric || {};
-    let rw=[], rg=[];
+    let rw=[], rg=[], times=[];
     try {
       const hist = await fetch(base+'all/1day?stationId='+id+q).then(r=>r.json());
       const obs = (hist.observations || []).slice(-36);
       rw = obs.map(x => (x.metric && x.metric.windspeedAvg!=null) ? Math.round(x.metric.windspeedAvg) : 0);
       rg = obs.map(x => (x.metric && x.metric.windgustHigh!=null) ? Math.round(x.metric.windgustHigh) : 0);
-      const n=Math.min(rw.length,rg.length); rw=rw.slice(0,n); rg=rg.slice(0,n);
+      times = obs.map(x => x.epoch ? x.epoch*1000 : (x.obsTimeUtc?Date.parse(x.obsTimeUtc):0));
+      const n=Math.min(rw.length,rg.length); rw=rw.slice(0,n); rg=rg.slice(0,n); times=times.slice(0,n);
     } catch(e) { /* history optional */ }
     const cw = m.windSpeed!=null ? Math.round(m.windSpeed) : 0;
     const cg = m.windGust!=null ? Math.round(m.windGust) : 0;
-    if(rw.length < 2) { rw=[cw,cw]; rg=[cg,cg]; }
+    if(rw.length < 2) { rw=[cw,cw]; rg=[cg,cg]; times=[]; }
     return { id:'wu_'+id.toLowerCase(), name:(o.neighborhood||id)+' (WU)', src:'Wunderground', web:'https://www.wunderground.com/dashboard/pws/'+id,
       lat:o.lat, lon:o.lon, elev:(m.elev!=null?m.elev:null), real:true, cam:false, camUrl:'',
       temp:(m.temp!=null?m.temp:null), dir:(o.winddir!=null?o.winddir:0), rw, rg, series:rw.slice(-12), gust:rg[rg.length-1],
-      obsTs: o.obsTimeUtc ? Date.parse(o.obsTimeUtc) : null };
+      obsTs: o.obsTimeUtc ? Date.parse(o.obsTimeUtc) : null, stepMs: times.length>1 ? medianStep(times) : 300000 };
   } catch(e) { console.error('WU', id, 'failed:', e.message); return null; }
 }
 
@@ -176,10 +150,9 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
     catch(e) { console.error('skytech attempt', attempt, 'failed:', e.message); }
     if(!stations.length && attempt<2) await page.waitForTimeout(5000);
   }
-  for (const st of ARSO) { const s = await collectArso(page, st); if(s) stations.push(s); }
-  const kred = await collectKredarica(page); if(kred) stations.push(kred);
   await browser.close();
-  // Wunderground (plain HTTPS JSON, no browser needed)
+  // ARSO high stations (vreme.si JSON API) and Wunderground — plain HTTPS, no browser needed.
+  for (const st of ARSO_LOCS) { const s = await collectArso(st); if(s) stations.push(s); }
   if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
   else { console.log('WU_KEY not set — skipping Wunderground stations'); }
 

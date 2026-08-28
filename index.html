@@ -238,7 +238,7 @@
 
   function genHi(s){
     // Real station: build history points from rw/rg arrays, anchored at the real observation time (obsTs), 10-min steps.
-    if(s.real){ var m=s.rw.length,rp=[],k; var anchor=s.obsTs||Date.now(); for(k=0;k<m;k++){ rp.push({t:anchor-(m-1-k)*600000, wind:s.rw[k], gust:s.rg[k]}); } s.hi=rp; s.wind=s.rw[m-1]; s.gust=s.rg[m-1]; if(!s.series||!s.series.length)s.series=s.rw.slice(-12); return; }
+    if(s.real){ var m=s.rw.length,rp=[],k; var anchor=s.obsTs||Date.now(), step=s.stepMs||600000; for(k=0;k<m;k++){ rp.push({t:anchor-(m-1-k)*step, wind:s.rw[k], gust:s.rg[k]}); } s.hi=rp; s.wind=s.rw[m-1]; s.gust=s.rg[m-1]; if(!s.series||!s.series.length)s.series=s.rw.slice(-12); return; }
     var n=145, pts=[], lvl=s.series[0], amp=Math.max(3,s.wind*0.5), i;
     for(i=0;i<n;i++){ var diurnal=amp*Math.sin(i/n*Math.PI*3 + s.dir/40); var noise=(Math.random()*2-1)*amp*0.35;
       lvl += (s.wind - lvl)*0.04; var wind=Math.max(0, lvl*0.6 + s.wind*0.4 + diurnal*0.5 + noise); var gust=wind*(1.4+Math.random()*0.4);
