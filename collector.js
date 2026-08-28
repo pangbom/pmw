@@ -159,18 +159,39 @@ async function collectWU(id) {
   } catch(e) { console.error('WU', id, 'failed:', e.message); return null; }
 }
 
+function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 : 2; }
+
 (async () => {
+  // Previous data.json = last-good snapshot. Used to carry stations forward when a source
+  // hiccups this run, so a single failed fetch never blanks the board (stale ones just age).
+  let prev = {};
+  try { const p = JSON.parse(fs.readFileSync('data.json','utf8')); (p.stations||[]).forEach(s=>{ prev[s.id]=s; }); } catch(e) {}
+
   const browser = await chromium.launch();
   const page = await browser.newPage({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36' });
   let stations = [];
-  try { stations = stations.concat(await collectSkytech(page)); } catch(e) { console.error('skytech failed:', e.message); }
+  // skytech is the core launch data — retry once if it comes back empty/errors.
+  for (let attempt=1; attempt<=2 && !stations.length; attempt++) {
+    try { const s = await collectSkytech(page); if(s && s.length) stations = stations.concat(s); }
+    catch(e) { console.error('skytech attempt', attempt, 'failed:', e.message); }
+    if(!stations.length && attempt<2) await page.waitForTimeout(5000);
+  }
   for (const st of ARSO) { const s = await collectArso(page, st); if(s) stations.push(s); }
   const kred = await collectKredarica(page); if(kred) stations.push(kred);
   await browser.close();
   // Wunderground (plain HTTPS JSON, no browser needed)
   if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
   else { console.log('WU_KEY not set — skipping Wunderground stations'); }
-  if (!stations.length) { console.error('No stations collected — aborting so a good data.json is not overwritten with empty.'); process.exit(1); }
+
+  // Merge: freshly collected stations win; anything not collected this run is carried over
+  // from the previous snapshot (keeps its old obsTs, so the board shows it aging).
+  const freshIds = new Set(stations.map(s=>s.id));
+  const carried = Object.keys(prev).filter(id=>!freshIds.has(id));
+  carried.forEach(id=>{ stations.push(prev[id]); });
+  if(carried.length) console.log('Carried over', carried.length, 'station(s) from last snapshot:', carried.join(', '));
+  stations.sort((a,b)=> rank(a.id)-rank(b.id));
+
+  if (!stations.length) { console.error('No stations collected and no previous snapshot — aborting.'); process.exit(1); }
   const out = { generated: new Date().toISOString(), source: 'skytech.si + ARSO + Wunderground PWS', stations };
   fs.writeFileSync('data.json', JSON.stringify(out));
   console.log('Wrote data.json with', stations.length, 'stations at', out.generated);
