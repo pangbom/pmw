@@ -34,6 +34,15 @@ const ARSO = [
   { code: 'BOVEC', name: 'Bovec valley (ARSO)', lat: 46.3306, lon: 13.5546, elev: 452 },
 ];
 const ARSO_URL = c => `https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_${c}_history.html`;
+// Kredarica has NO individual history file (all code variants 404), but it IS in ARSO's
+// combined current-conditions table — so we pull its current reading from there (no 6h history).
+const ARSO_COMBINED = 'https://meteo.arso.gov.si/uploads/probase/www/observ/surface/text/sl/observationAms_si_latest.html';
+
+// ---- Wunderground personal weather stations (PWS) ----
+// Needs a WU API key, supplied at runtime via the WU_KEY env var (GitHub Actions secret) —
+// never hard-coded. If WU_KEY is unset, WU stations are simply skipped.
+const WU_KEY = process.env.WU_KEY || '';
+const WU_STATIONS = ['IKOBAR10','IKOBAR8','ITOLMI33','IBOVEC5','IBOVEC12','IBOVEC9'];
 
 async function collectSkytech(page) {
   await page.goto('https://skytech.si/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -96,15 +105,73 @@ async function collectArso(page, st) {
   } catch(e) { console.error('ARSO', st.code, 'failed:', e.message); return null; }
 }
 
+// Kredarica: current-only, parsed from ARSO's combined table (no per-station history file exists).
+async function collectKredarica(page) {
+  try {
+    await page.goto(ARSO_COMBINED, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const r = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('tr')];
+      if(!rows.length) return null;
+      const hdr = [...rows[0].querySelectorAll('th,td')].map(c=>c.textContent.trim());
+      const find = re => hdr.findIndex(h=>re.test(h.toLowerCase()));
+      const iTemp=find(/temperatur/), iWind=find(/hitrost vetra|wind speed/), iDir=find(/smer vetra|wind.*°|direction/), iGust=find(/sunki|wind gust/);
+      const num = v => { const n=parseFloat((v||'').replace(',','.')); return isNaN(n)?null:n; };
+      let row=null;
+      for(const rr of rows){ const c=rr.querySelector('td,th'); if(c && /kredarica/i.test(c.textContent)){ row=[...rr.querySelectorAll('td,th')].map(x=>x.textContent.trim()); break; } }
+      if(!row) return null;
+      const tm = document.body.textContent.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2})/);
+      const obsTs = tm ? Date.UTC(+tm[3],+tm[2]-1,+tm[1],+tm[4]-2,+tm[5]) : null;
+      const w=num(row[iWind]), g=num(row[iGust]);
+      if(w==null && g==null) return null;
+      return { w: w==null?0:w, g: g==null?0:g, dir: num(row[iDir]), temp: num(row[iTemp]), obsTs };
+    });
+    if(!r) { console.error('Kredarica: no data'); return null; }
+    return { id:'arso_kredarica', name:'Kredarica (ARSO)', src:'ARSO', web:'https://meteo.arso.gov.si/', lat:46.3789, lon:13.8489, elev:2514,
+      real:true, cam:false, camUrl:'', temp:r.temp, dir:r.dir==null?0:r.dir, rw:[r.w,r.w], rg:[r.g,r.g], series:[r.w,r.w], gust:r.g, obsTs:r.obsTs };
+  } catch(e) { console.error('Kredarica failed:', e.message); return null; }
+}
+
+// Wunderground PWS — server-side JSON API (needs WU_KEY). Returns current + ~3h of 5-min history.
+async function collectWU(id) {
+  if(!WU_KEY) return null;
+  const base = 'https://api.weather.com/v2/pws/observations/';
+  const q = '&format=json&units=m&apiKey=' + WU_KEY;
+  try {
+    const cur = await fetch(base+'current?stationId='+id+q).then(r=>r.json());
+    const o = cur.observations && cur.observations[0];
+    if(!o) { console.error('WU', id, 'no current obs'); return null; }
+    const m = o.metric || {};
+    let rw=[], rg=[];
+    try {
+      const hist = await fetch(base+'all/1day?stationId='+id+q).then(r=>r.json());
+      const obs = (hist.observations || []).slice(-36);
+      rw = obs.map(x => (x.metric && x.metric.windspeedAvg!=null) ? Math.round(x.metric.windspeedAvg) : 0);
+      rg = obs.map(x => (x.metric && x.metric.windgustHigh!=null) ? Math.round(x.metric.windgustHigh) : 0);
+      const n=Math.min(rw.length,rg.length); rw=rw.slice(0,n); rg=rg.slice(0,n);
+    } catch(e) { /* history optional */ }
+    const cw = m.windSpeed!=null ? Math.round(m.windSpeed) : 0;
+    const cg = m.windGust!=null ? Math.round(m.windGust) : 0;
+    if(rw.length < 2) { rw=[cw,cw]; rg=[cg,cg]; }
+    return { id:'wu_'+id.toLowerCase(), name:(o.neighborhood||id)+' (WU)', src:'Wunderground', web:'https://www.wunderground.com/dashboard/pws/'+id,
+      lat:o.lat, lon:o.lon, elev:(m.elev!=null?m.elev:null), real:true, cam:false, camUrl:'',
+      temp:(m.temp!=null?m.temp:null), dir:(o.winddir!=null?o.winddir:0), rw, rg, series:rw.slice(-12), gust:rg[rg.length-1],
+      obsTs: o.obsTimeUtc ? Date.parse(o.obsTimeUtc) : null };
+  } catch(e) { console.error('WU', id, 'failed:', e.message); return null; }
+}
+
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36' });
   let stations = [];
   try { stations = stations.concat(await collectSkytech(page)); } catch(e) { console.error('skytech failed:', e.message); }
   for (const st of ARSO) { const s = await collectArso(page, st); if(s) stations.push(s); }
+  const kred = await collectKredarica(page); if(kred) stations.push(kred);
   await browser.close();
+  // Wunderground (plain HTTPS JSON, no browser needed)
+  if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
+  else { console.log('WU_KEY not set — skipping Wunderground stations'); }
   if (!stations.length) { console.error('No stations collected — aborting so a good data.json is not overwritten with empty.'); process.exit(1); }
-  const out = { generated: new Date().toISOString(), source: 'skytech.si launch anemometers + ARSO high stations', stations };
+  const out = { generated: new Date().toISOString(), source: 'skytech.si + ARSO + Wunderground PWS', stations };
   fs.writeFileSync('data.json', JSON.stringify(out));
   console.log('Wrote data.json with', stations.length, 'stations at', out.generated);
 })();
