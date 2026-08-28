@@ -41,6 +41,9 @@ const ARSO_API = loc => `https://www.vreme.si/api/1.0/location/observations/?loc
 // never hard-coded. If WU_KEY is unset, WU stations are simply skipped.
 const WU_KEY = process.env.WU_KEY || '';
 const WU_STATIONS = ['IKOBAR10','IKOBAR8','ITOLMI33','IBOVEC5','IBOVEC12','IBOVEC9'];
+// Curated names: Wunderground labels these three "Bovec" (the municipality), but they sit in
+// distinct settlements up the Koritnica valley (confirmed by reverse-geocoding their coords).
+const WU_NAMES = { IBOVEC5:'Log pod Mangartom', IBOVEC12:'Kal-Koritnica', IBOVEC9:'Spodnji Log' };
 
 async function collectSkytech(page) {
   await page.goto('https://skytech.si/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -126,7 +129,7 @@ async function collectWU(id) {
     const cw = m.windSpeed!=null ? Math.round(m.windSpeed) : 0;
     const cg = m.windGust!=null ? Math.round(m.windGust) : 0;
     if(rw.length < 2) { rw=[cw,cw]; rg=[cg,cg]; times=[]; }
-    return { id:'wu_'+id.toLowerCase(), name:(o.neighborhood||id)+' (WU)', src:'Wunderground', web:'https://www.wunderground.com/dashboard/pws/'+id,
+    return { id:'wu_'+id.toLowerCase(), name:(WU_NAMES[id]||o.neighborhood||id), src:'Wunderground', web:'https://www.wunderground.com/dashboard/pws/'+id,
       lat:o.lat, lon:o.lon, elev:(m.elev!=null?m.elev:null), real:true, cam:false, camUrl:'',
       temp:(m.temp!=null?m.temp:null), dir:(o.winddir!=null?o.winddir:0), rw, rg, series:rw.slice(-12), gust:rg[rg.length-1],
       obsTs: o.obsTimeUtc ? Date.parse(o.obsTimeUtc) : null, stepMs: times.length>1 ? medianStep(times) : 300000 };
