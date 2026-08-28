@@ -107,8 +107,9 @@
   .pop .newrow button{background:var(--accent);color:#062330;border:0;border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:600;font-size:12.5px}
 
   .leaflet-div-icon{background:transparent;border:0}
-  .wm{width:84px;text-align:center;font-family:"IBM Plex Sans",sans-serif}
-  .wm svg{display:block;margin:0 auto}
+  .wm{width:60px;text-align:center;font-family:"IBM Plex Sans",sans-serif}
+  .wm svg{display:block;margin:0 auto;transition:filter .12s,transform .12s;transform-origin:50% 55%}
+  .wm.hl svg{filter:drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 7px var(--accent));transform:scale(1.35)}
   .wm-top{display:inline-block;background:rgba(13,21,31,.86);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;margin-top:1px}
   .wm-bot{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;margin-top:1px;background:rgba(13,21,31,.78);border-radius:5px;padding:0 6px}
   .wm-bot .b{color:#fff;font-weight:600} .wm-bot .g{color:#c7d2dd;font-weight:600;margin-left:6px}
@@ -473,6 +474,8 @@
     dodgeMarkers();
   }
 
+  function highlightMarker(id,on){ var m=markers[id]; if(!m||!m._icon)return; var wm=m._icon.querySelector(".wm"); if(wm)wm.classList.toggle("hl",on); if(m.setZIndexOffset)m.setZIndexOffset(on?1000:0); }
+
   // ---- webcams ----
   function camCard(s){ return '<div class="cam"><div class="feed">'+escapeHtml(s.name)+' webcam</div><div class="cap"><span>'+escapeHtml(s.name)+'</span>'+(s.camUrl?'<a href="'+s.camUrl+'" target="_blank" rel="noopener">open source \u2197</a>':'')+'</div></div>'; }
   function openCams(single){ var cams=single?[byId(single)]:STATIONS.filter(function(s){return s.cam;});
@@ -529,6 +532,9 @@
       var pa=e.target.closest("[data-popadd]"); if(pa){ var sid=pa.getAttribute("data-popadd"); var inp=document.querySelector('[data-popnew="'+sid+'"]'); addListWith(inp?inp.value:"",sid); return; }
     });
     document.getElementById("cards").addEventListener("keydown",function(e){ var inp=e.target.closest("[data-popnew]"); if(inp&&e.key==="Enter")addListWith(inp.value,inp.getAttribute("data-popnew")); });
+    var cardsEl=document.getElementById("cards"), hlId=null;
+    cardsEl.addEventListener("mouseover",function(e){ var c=e.target.closest(".card[data-id]"); var id=c&&c.getAttribute("data-id"); if(id!==hlId){ if(hlId)highlightMarker(hlId,false); hlId=id; if(hlId)highlightMarker(hlId,true); } });
+    cardsEl.addEventListener("mouseleave",function(){ if(hlId){ highlightMarker(hlId,false); hlId=null; } });
 
     var lv=document.getElementById("listview");
     lv.addEventListener("click",function(e){
