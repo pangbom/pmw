@@ -435,8 +435,9 @@
     return draw(dark,2.8)+draw("#fff",1.0);
   }
   function windMarkerHtml(s){
-    var kt=knots(s.wind), barb=kt<2.5?"":barbGroup(kt);
-    var ring='<circle cx="0" cy="0" r="2.6" fill="#0d151f" stroke="#0d151f" stroke-width="2.6"/><circle cx="0" cy="0" r="2.6" fill="#0d151f" stroke="#fff" stroke-width="1.1"/>';
+    var kt=knots(s.wind), calm=kt<2.5, barb=calm?"":barbGroup(kt);
+    var r=calm?5.2:2.6;
+    var ring='<circle cx="0" cy="0" r="'+r+'" fill="#0d151f" stroke="#0d151f" stroke-width="2.8"/><circle cx="0" cy="0" r="'+r+'" fill="none" stroke="#fff" stroke-width="'+(calm?1.5:1.1)+'"/>';
     var svg='<svg width="60" height="62" viewBox="0 0 60 62"><g transform="translate(30,34)"><g transform="rotate('+s.dir+')">'+barb+'</g>'+ring+'</g></svg>';
     return '<div class="wm">'+svg+'</div>';
   }

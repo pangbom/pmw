@@ -16,7 +16,6 @@ const { chromium } = require('playwright');
 const SKY_META = {
   c454085df514ce66b7d124ee8d60fb85: { name: 'Planja nad Bovcem', lat: 46.353, lon: 13.586, elev: 1400 },
   b80c1266094cabce865a616424be25d4: { name: 'Mangrt', lat: 46.438, lon: 13.636, elev: 2055 },
-  daeca69ffaa4263cdb3a1d7e90255ae9: { name: 'Učeja pod Stolom', lat: 46.300, lon: 13.440, elev: 700 },
   '7cb4c2a7a43cb46bf867601576e96a7e': { name: 'Stol', lat: 46.283, lon: 13.478, elev: 1600 },
   '4512a867ca0d18bbd33ccdb36b0ea333': { name: 'Kobala', lat: 46.196, lon: 13.706, elev: 1050 },
   '02733e47c412ef533fa6c4d8fa0655a7': { name: 'Srednji vrh (Matajur)', lat: 46.178, lon: 13.553, elev: 1400 },
@@ -40,10 +39,9 @@ const ARSO_API = loc => `https://www.vreme.si/api/1.0/location/observations/?loc
 // Needs a WU API key, supplied at runtime via the WU_KEY env var (GitHub Actions secret) —
 // never hard-coded. If WU_KEY is unset, WU stations are simply skipped.
 const WU_KEY = process.env.WU_KEY || '';
-const WU_STATIONS = ['IKOBAR10','IKOBAR8','ITOLMI33','IBOVEC5','IBOVEC12','IBOVEC9'];
-// Curated names: Wunderground labels these three "Bovec" (the municipality), but they sit in
-// distinct settlements up the Koritnica valley (confirmed by reverse-geocoding their coords).
-const WU_NAMES = { IBOVEC5:'Log pod Mangartom', IBOVEC12:'Kal-Koritnica', IBOVEC9:'Spodnji Log' };
+const WU_STATIONS = ['IKOBAR10','IKOBAR8','ITOLMI33','ITOLMI47','IBOVEC5','IBOVEC12','IBOVEC9'];
+// Curated names (JB's local corrections).
+const WU_NAMES = { IBOVEC5:'Road to Log', IBOVEC12:'Ravni Laz', IBOVEC9:'Log pod Mangartom', ITOLMI47:'Čadrg' };
 
 async function collectSkytech(page) {
   await page.goto('https://skytech.si/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -159,10 +157,17 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
   if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
   else { console.log('WU_KEY not set — skipping Wunderground stations'); }
 
-  // Merge: freshly collected stations win; anything not collected this run is carried over
-  // from the previous snapshot (keeps its old obsTs, so the board shows it aging).
+  // Expected station ids from the current config — so a station we deliberately removed
+  // does not linger via the carry-over below.
+  const expected = new Set();
+  Object.keys(SKY_META).forEach(id=>expected.add('sky_'+id.slice(0,8)));
+  ARSO_LOCS.forEach(st=>expected.add('arso_'+st.loc.toLowerCase()));
+  WU_STATIONS.forEach(id=>expected.add('wu_'+id.toLowerCase()));
+
+  // Merge: freshly collected stations win; a currently-configured station not collected this
+  // run is carried over from the previous snapshot (keeps its old obsTs, so it visibly ages).
   const freshIds = new Set(stations.map(s=>s.id));
-  const carried = Object.keys(prev).filter(id=>!freshIds.has(id));
+  const carried = Object.keys(prev).filter(id=>!freshIds.has(id) && expected.has(id));
   carried.forEach(id=>{ stations.push(prev[id]); });
   if(carried.length) console.log('Carried over', carried.length, 'station(s) from last snapshot:', carried.join(', '));
   stations.sort((a,b)=> rank(a.id)-rank(b.id));
