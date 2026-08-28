@@ -14,11 +14,11 @@ const { chromium } = require('playwright');
 
 // ---- skytech launch stations (id from the tabela row's show('graf','<id>')) ----
 const SKY_META = {
-  c454085df514ce66b7d124ee8d60fb85: { name: 'Planja nad Bovcem', lat: 46.353, lon: 13.586, elev: 1400 },
+  c454085df514ce66b7d124ee8d60fb85: { name: 'Planja nad Bovcem', lat: 46.350, lon: 13.520, elev: 1400 },
   b80c1266094cabce865a616424be25d4: { name: 'Mangrt', lat: 46.438, lon: 13.636, elev: 2055 },
-  '7cb4c2a7a43cb46bf867601576e96a7e': { name: 'Stol', lat: 46.283, lon: 13.478, elev: 1600 },
-  '4512a867ca0d18bbd33ccdb36b0ea333': { name: 'Kobala', lat: 46.196, lon: 13.706, elev: 1050 },
-  '02733e47c412ef533fa6c4d8fa0655a7': { name: 'Srednji vrh (Matajur)', lat: 46.178, lon: 13.553, elev: 1400 },
+  '7cb4c2a7a43cb46bf867601576e96a7e': { name: 'Stol', lat: 46.2732, lon: 13.4692, elev: 1600 },
+  '4512a867ca0d18bbd33ccdb36b0ea333': { name: 'Kobala', lat: 46.1812, lon: 13.7794, elev: 1050 },
+  '02733e47c412ef533fa6c4d8fa0655a7': { name: 'Srednji vrh (Matajur)', lat: 46.2089, lon: 13.5655, elev: 1400 },
   '79d47c5a18523edc5727a8953de1b891': { name: 'Kuk', lat: 46.263, lon: 13.535, elev: 1100 },
   a84ab4e780a3f8bf63dbcaea6060ccf7: { name: 'Vogel', lat: 46.259, lon: 13.840, elev: 1535 },
 };
