@@ -423,35 +423,53 @@
     else{ renderChart(); }
   }
 
-  // ---- wind-barb markers ----
+  // ---- wind-barb markers (style: "Open pennants" — long thin staff, hollow 50-kt pennants) ----
   function barbGroup(kt){
-    var L=17, bl=8, sp=4.2, dark="#0d151f"; var spd=Math.round(kt/5)*5; if(spd<2.5) return "";
+    var L=26, bl=8, sp=3.6, dark="#0d151f"; var spd=Math.round(kt/5)*5; if(spd<2.5) return "";
     var pen=Math.floor(spd/50), rem=spd-pen*50, full=Math.floor(rem/10), half=Math.floor((rem-full*10)/5);
     var prim=[]; prim.push({t:"line",x1:0,y1:0,x2:0,y2:-L}); var pos=L, i;
-    for(i=0;i<pen;i++){ prim.push({t:"poly",pts:[[0,-pos],[0,-(pos-sp*1.5)],[-bl,-(pos-sp*0.75)]]}); pos-=sp*1.7; }
-    for(i=0;i<full;i++){ prim.push({t:"line",x1:0,y1:-pos,x2:-bl,y2:-(pos-bl*0.55)}); pos-=sp; }
-    for(i=0;i<half;i++){ if(pen===0&&full===0){ pos-=sp; } prim.push({t:"line",x1:0,y1:-pos,x2:-bl*0.5,y2:-(pos-bl*0.28)}); pos-=sp; }
-    function draw(color,w){ return prim.map(function(p){ if(p.t==="line") return '<line x1="'+p.x1+'" y1="'+p.y1.toFixed(1)+'" x2="'+p.x2.toFixed(1)+'" y2="'+p.y2.toFixed(1)+'" stroke="'+color+'" stroke-width="'+w+'" stroke-linecap="round"/>'; return '<polygon points="'+p.pts.map(function(q){return q[0]+","+q[1].toFixed(1);}).join(" ")+'" fill="'+color+'" stroke="'+color+'" stroke-width="'+(w*0.5)+'" stroke-linejoin="round"/>'; }).join(""); }
-    return draw(dark,3.4)+draw("#fff",1.6);
+    for(i=0;i<pen;i++){ prim.push({t:"poly",pts:[[0,-pos],[0,-(pos-sp*1.7)],[-bl,-(pos-sp*0.85)]]}); pos-=sp*1.95; }
+    for(i=0;i<full;i++){ prim.push({t:"line",x1:0,y1:-pos,x2:-bl,y2:-(pos-bl*0.5)}); pos-=sp; }
+    for(i=0;i<half;i++){ if(pen===0&&full===0){ pos-=sp; } prim.push({t:"line",x1:0,y1:-pos,x2:-bl*0.5,y2:-(pos-bl*0.25)}); pos-=sp; }
+    function draw(color,w){ return prim.map(function(p){ if(p.t==="line") return '<line x1="'+p.x1+'" y1="'+p.y1.toFixed(1)+'" x2="'+p.x2.toFixed(1)+'" y2="'+p.y2.toFixed(1)+'" stroke="'+color+'" stroke-width="'+w+'" stroke-linecap="round"/>'; return '<polygon points="'+p.pts.map(function(q){return q[0]+","+q[1].toFixed(1);}).join(" ")+'" fill="none" stroke="'+color+'" stroke-width="'+w+'" stroke-linejoin="round"/>'; }).join(""); }
+    return draw(dark,2.8)+draw("#fff",1.0);
   }
   function windMarkerHtml(s){
     var kt=knots(s.wind), barb=kt<2.5?"":barbGroup(kt);
-    var circle='<circle cx="0" cy="0" r="3.2" fill="#0d151f" stroke="#0d151f" stroke-width="3"/><circle cx="0" cy="0" r="3.2" fill="none" stroke="#fff" stroke-width="1.5"/>';
-    var svg='<svg width="52" height="52" viewBox="0 0 52 52"><g transform="translate(26,26)"><g transform="rotate('+s.dir+')">'+barb+'</g>'+circle+'</g></svg>';
-    return '<div class="wm">'+svg+'<div class="wm-top">'+escapeHtml(s.name)+'</div><div class="wm-bot"><span class="b">'+fmt(s.wind)+'</span><span class="g">g'+fmt(s.gust)+'</span></div></div>';
+    var ring='<circle cx="0" cy="0" r="2.6" fill="#0d151f" stroke="#0d151f" stroke-width="2.6"/><circle cx="0" cy="0" r="2.6" fill="#0d151f" stroke="#fff" stroke-width="1.1"/>';
+    var svg='<svg width="60" height="62" viewBox="0 0 60 62"><g transform="translate(30,34)"><g transform="rotate('+s.dir+')">'+barb+'</g>'+ring+'</g></svg>';
+    return '<div class="wm">'+svg+'</div>';
   }
-  function windIcon(s){ return L.divIcon({className:"",iconSize:[84,86],iconAnchor:[42,26],popupAnchor:[0,-24],html:windMarkerHtml(s)}); }
+  function windIcon(s){ return L.divIcon({className:"",iconSize:[60,62],iconAnchor:[30,34],popupAnchor:[0,-30],html:windMarkerHtml(s)}); }
+  function dodgeMarkers(){
+    if(!map) return;
+    var arr=Object.keys(markers).map(function(id){ var m=markers[id]; var p=map.latLngToContainerPoint(m._trueLatLng); return {m:m,x:p.x,y:p.y}; });
+    var R=30, used=[];
+    arr.forEach(function(a){
+      if(used.indexOf(a)>=0) return;
+      var cl=[a]; used.push(a);
+      arr.forEach(function(b){ if(used.indexOf(b)<0 && Math.hypot(b.x-a.x,b.y-a.y)<R){ cl.push(b); used.push(b); } });
+      if(cl.length<2){ a.m.setLatLng(a.m._trueLatLng); return; }
+      var cx=cl.reduce(function(t,p){return t+p.x;},0)/cl.length, cy=cl.reduce(function(t,p){return t+p.y;},0)/cl.length;
+      cl.sort(function(p,q){ return p.m._trueLatLng.lng-q.m._trueLatLng.lng; });
+      var span=(cl.length-1)*30;
+      cl.forEach(function(p,i){ p.m.setLatLng(map.containerPointToLatLng(L.point(cx-span/2+i*30, cy))); });
+    });
+  }
   function renderMarkers(vis){
     if(!map)return; vis=vis.filter(function(s){ return !state.mapHidden[s.id]; });
+    if(!map._dodgeBound){ map.on("zoomend",dodgeMarkers); map._dodgeBound=true; }
     var visIds=vis.map(function(s){return s.id;});
     Object.keys(markers).forEach(function(id){ if(visIds.indexOf(id)<0){ map.removeLayer(markers[id]); delete markers[id]; } });
     vis.forEach(function(s){
-      if(markers[s.id]){ markers[s.id].setIcon(windIcon(s)); }
-      else{ var m=L.marker([s.lat,s.lon],{icon:windIcon(s)}).addTo(map);
+      var ll=L.latLng(s.lat,s.lon);
+      if(markers[s.id]){ markers[s.id]._trueLatLng=ll; markers[s.id].setIcon(windIcon(s)); }
+      else{ var m=L.marker(ll,{icon:windIcon(s)}).addTo(map); m._trueLatLng=ll;
         m.on("mouseover",function(){ var el=document.querySelector('.card[data-id="'+s.id+'"]'); if(el){ el.classList.add("hl"); el.scrollIntoView({behavior:"smooth",block:"nearest"}); } });
         m.on("mouseout",function(){ var el=document.querySelector('.card[data-id="'+s.id+'"]'); if(el)el.classList.remove("hl"); });
         markers[s.id]=m; }
     });
+    dodgeMarkers();
   }
 
   // ---- webcams ----
