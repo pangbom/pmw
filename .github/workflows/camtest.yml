@@ -34,7 +34,7 @@ jobs:
             ( cd camstore-wt && git checkout --orphan camstore && git rm -rf . >/dev/null 2>&1 || true )
           fi
 
-          CAM_DIR=camstore-wt LATEST_OUT=cams-latest.json node capture-cams.js
+          CAM_DIR=camstore-wt LATEST_OUT=cams-latest.json DIAG_OUT=cam-diag.json node capture-cams.js
 
           # camstore: keep history to a single commit (amend + force) so 24h of frames never bloats git.
           ( cd camstore-wt
@@ -43,7 +43,7 @@ jobs:
             git push --force origin camstore )
 
           # main: the fresh latest-frame pointers (small).
-          git add cams-latest.json
+          git add cams-latest.json cam-diag.json
           if ! git diff --staged --quiet; then
             git commit -m "cam latest $(date -u +%FT%TZ)"
             for i in 1 2 3; do git push && break; git pull --rebase --autostash origin main || true; sleep 2; done

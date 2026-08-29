@@ -26,16 +26,24 @@ const cams = JSON.parse(fs.readFileSync('cams.json', 'utf8'));
 function sha1(buf){ return crypto.createHash('sha1').update(buf).digest('hex'); }
 function frameEpoch(fname){ const m = fname.match(/^(\d+)\.jpg$/); return m ? +m[1] : null; }
 
+const DIAG = [];
 async function grab(id){
   const ctrl = new AbortController();
   const timer = setTimeout(()=>ctrl.abort(), 15000);
   try {
-    const r = await fetch(SNAP(id), { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0 PMW-cam-capture' } });
-    if(!r.ok){ console.error('cam', id, 'HTTP', r.status); return null; }
+    const r = await fetch(SNAP(id), { signal: ctrl.signal, headers: {
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
+      'Referer': 'https://services.whatsupcams.com/',
+      'Origin': 'https://services.whatsupcams.com',
+      'Accept': 'image/avif,image/webp,image/*,*/*'
+    } });
     const buf = Buffer.from(await r.arrayBuffer());
-    if(buf.length < 1024 || buf[0] !== 0xFF || buf[1] !== 0xD8){ console.error('cam', id, 'not a JPEG (', buf.length, 'bytes)'); return null; }
+    const jpeg = buf.length > 1024 && buf[0] === 0xFF && buf[1] === 0xD8;
+    DIAG.push({ id, status: r.status, bytes: buf.length, jpeg });
+    if(!r.ok){ console.error('cam', id, 'HTTP', r.status); return null; }
+    if(!jpeg){ console.error('cam', id, 'not a JPEG (', buf.length, 'bytes)'); return null; }
     return buf;
-  } catch(e){ console.error('cam', id, 'failed:', e.message); return null; }
+  } catch(e){ DIAG.push({ id, error: e.message }); console.error('cam', id, 'failed:', e.message); return null; }
   finally { clearTimeout(timer); }
 }
 
@@ -82,6 +90,7 @@ async function grab(id){
 
   // Latest pointers → main (served fresh from Pages).
   fs.writeFileSync(LATEST_OUT, JSON.stringify({ generated: new Date(now).toISOString(), base: RAW_BASE, cams: latest }));
+  if(process.env.DIAG_OUT){ fs.writeFileSync(process.env.DIAG_OUT, JSON.stringify({ generated: new Date(now).toISOString(), probes: DIAG })); }
 
   const got = latest.filter(x=>x.t && (now - x.t) < 120000).length;
   console.log('cam capture: '+got+'/'+cams.length+' fresh this pass; frames/cam:', latest.map(x=>x.id+'='+x.count).join(' '));
