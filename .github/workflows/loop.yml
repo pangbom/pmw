@@ -57,8 +57,15 @@ jobs:
             CYCLE=$((CYCLE+1))
             START=$(date +%s)
 
-            DATA_FILE=camstore-wt/data.json node collector.js || echo "collector failed (cycle $CYCLE)"
-            CAM_DIR=camstore-wt LATEST_OUT=camstore-wt/cams-latest.json node capture-cams.js || echo "capture failed (cycle $CYCLE)"
+            # Cams every cycle (~3 min): light HTTPS fetch, robust. timeout guards a hang.
+            CAM_DIR=camstore-wt LATEST_OUT=camstore-wt/cams-latest.json DIAG_OUT=camstore-wt/cam-diag.json \
+              timeout 150 node capture-cams.js || echo "capture failed/timed out (cycle $CYCLE)"
+
+            # Wind collector uses a headless browser — heavier/more fragile. Run it every 3rd cycle
+            # (~9 min), which matches the anemometers' ~10-min reporting. timeout kills any hang.
+            if [ $(( CYCLE % 3 )) -eq 1 ]; then
+              DATA_FILE=camstore-wt/data.json timeout 180 node collector.js || echo "collector failed/timed out (cycle $CYCLE)"
+            fi
 
             # Commit everything to camstore as a single amended commit, force-pushed (no bloat).
             ( cd camstore-wt
