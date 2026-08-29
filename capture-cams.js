@@ -27,9 +27,10 @@ function sha1(buf){ return crypto.createHash('sha1').update(buf).digest('hex'); 
 function frameEpoch(fname){ const m = fname.match(/^(\d+)\.jpg$/); return m ? +m[1] : null; }
 
 const DIAG = [];
-async function grab(id){
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
+async function grabOnce(id){
   const ctrl = new AbortController();
-  const timer = setTimeout(()=>ctrl.abort(), 15000);
+  const timer = setTimeout(()=>ctrl.abort(), 25000);
   try {
     const r = await fetch(SNAP(id), { signal: ctrl.signal, headers: {
       'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
@@ -39,12 +40,23 @@ async function grab(id){
     } });
     const buf = Buffer.from(await r.arrayBuffer());
     const jpeg = buf.length > 1024 && buf[0] === 0xFF && buf[1] === 0xD8;
-    DIAG.push({ id, status: r.status, bytes: buf.length, jpeg });
-    if(!r.ok){ console.error('cam', id, 'HTTP', r.status); return null; }
-    if(!jpeg){ console.error('cam', id, 'not a JPEG (', buf.length, 'bytes)'); return null; }
-    return buf;
-  } catch(e){ DIAG.push({ id, error: e.message }); console.error('cam', id, 'failed:', e.message); return null; }
-  finally { clearTimeout(timer); }
+    return { status: r.status, ok: r.ok, buf, jpeg };
+  } finally { clearTimeout(timer); }
+}
+async function grab(id){
+  for(let attempt=1; attempt<=2; attempt++){
+    try {
+      const r = await grabOnce(id);
+      if(attempt===2 || (r.ok && r.jpeg)) DIAG.push({ id, status: r.status, bytes: r.buf.length, jpeg: r.jpeg, attempt });
+      if(r.ok && r.jpeg) return r.buf;
+      console.error('cam', id, 'HTTP', r.status, 'jpeg', r.jpeg, '(attempt', attempt+')');
+    } catch(e){
+      if(attempt===2) DIAG.push({ id, error: e.message, attempt });
+      console.error('cam', id, 'failed (attempt', attempt+'):', e.message);
+    }
+    if(attempt<2) await sleep(1500);
+  }
+  return null;
 }
 
 (async () => {
@@ -75,6 +87,7 @@ async function grab(id){
       latest: newest ? ('cams/'+c.id+'/'+newest) : null,
       t: newest ? frameEpoch(newest) : null,
       count: files.length });
+    await sleep(300); // gentle spacing so the CDN doesn't rate-limit the burst
   }
 
   // Manifest (full 24h frame list) → camstore.
