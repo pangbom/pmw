@@ -19,7 +19,7 @@ const RETENTION_MS = RETENTION_H * 3600 * 1000;
 const CAM_DIR = process.env.CAM_DIR || 'camstore';           // camstore worktree root
 const LATEST_OUT = process.env.LATEST_OUT || 'cams-latest.json';
 const RAW_BASE = process.env.RAW_BASE || 'https://raw.githubusercontent.com/pangbom/pmw/camstore/';
-const SNAP = id => `https://cdn.whatsupcams.com/snapshot/${id}.jpg`;
+const SNAP = id => `https://cdn.whatsupcams.com/snapshot/${id}.jpg?t=${Date.now()}`;
 
 const cams = JSON.parse(fs.readFileSync('cams.json', 'utf8'));
 
