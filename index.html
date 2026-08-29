@@ -162,6 +162,16 @@
   .camnote{font-size:12.5px;color:var(--ink-dim);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px}
   .camnote b{color:var(--ink)}
   .camgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .camtile2{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .12s}
+  .camtile2:hover{border-color:var(--accent)}
+  .camframe{position:relative;aspect-ratio:16/9;background:#0a141d}
+  .camframe iframe.cf{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+  .camtile2 .cap{padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .camtile2 .cap .nm{font-weight:600;font-size:14px}
+  .camtile2 .cap .ar{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
+  .camtile2 .expand{background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:7px;width:32px;height:28px;cursor:pointer;font-size:15px;line-height:1;flex:none}
+  .camtile2 .expand:hover{border-color:var(--accent);color:var(--ink)}
+  .cammodal .camframe.big{width:100%;border-radius:10px;overflow:hidden}
   .camtile{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .12s}
   .camtile:hover{border-color:var(--accent)}
   .camtile .pic{aspect-ratio:16/9;width:100%;display:block;object-fit:cover;background:#0a141d}
@@ -445,32 +455,40 @@
   }
 
   // ---- Cams view (live webcam previews) ----
+  var WGT="https://services.whatsupcams.com/wgt/";
   var CAMS=[
-    { id:"predel", name:"Predel pass", area:"Log pod Mangartom side", url:"https://kamere.dars.si/kamere/drsi_vgrc/Predel_Pre1_0001.jpg", live:true },
-    { id:"ucja",   name:"Učja",        area:"Žaga / Bovec approach",  url:"https://kamere.dars.si/kamere/drsi_vgrc/Ucja_Ucj1_0001.jpg",   live:true }
+    { id:"si_bovec03",     name:"Skydive Bovec",             area:"airport dropzone · valley" },
+    { id:"si_bovec02",     name:"Bovec airport",             area:"view to Kanin" },
+    { id:"si_kanin01",     name:"Kanin – Prestreljenik", area:"high ridge · ~2200 m" },
+    { id:"si_kanin02",     name:"Kanin – to Bovec",      area:"top station · valley" },
+    { id:"si_kanin03",     name:"Kanin – Graben",        area:"ski resort" },
+    { id:"si_kanin04",     name:"Kanin – Prevala",       area:"resort saddle" },
+    { id:"si_logmangart02",name:"Log pod Mangartom",         area:"Jerebica & Rombon" },
+    { id:"si_logmangart01",name:"Log Mangartom park",        area:"adventure resort" },
+    { id:"si_cezsoca01",   name:"Čezsoča",          area:"Soča river" },
+    { id:"si_bovec",       name:"Bovec town",                area:"main square" }
   ];
-  var camBust=Date.now(), camTimer=null;
-  function camSrc(c){ return c.url+(c.url.indexOf("?")>=0?"&":"?")+"t="+camBust; }
+  function camUrl(c){ return WGT+c.id; }
+  function camFrame(c){ return '<iframe class="cf" src="'+camUrl(c)+'" sandbox="allow-scripts allow-same-origin" loading="lazy" allow="autoplay; fullscreen" title="'+escapeHtml(c.name)+' webcam"></iframe>'; }
   function renderCams(){
     var note=document.getElementById("camnote");
-    note.innerHTML='<b>Live webcams.</b> Direct views that refresh every minute. A 24-hour scrub-back timeline and more angles (Kanin, launch cams…) are next — tell me which cams you want and I’ll add them.';
+    note.innerHTML='<b>Live webcams — Bovec &amp; Soča valley.</b> Press play on any cam. Where a cam keeps history, a clock icon at the player’s bottom-left scrubs back through recent hours (timelapse). Ads are blocked here. Source: whatsupcams.com.';
     var grid=document.getElementById("camgrid");
     if(!CAMS.length){ grid.innerHTML='<div class="camnote">No cams yet.</div>'; return; }
     grid.innerHTML=CAMS.map(function(c){
-      return '<div class="camtile" data-cam="'+c.id+'">'+
-        '<img class="pic" src="'+camSrc(c)+'" alt="'+escapeHtml(c.name)+'" onerror="this.style.display=\'none\';this.insertAdjacentHTML(\'afterend\',\'<div class=&quot;ph&quot;>view momentarily unavailable</div>\')">'+
-        '<div class="cap"><div><div class="nm">'+escapeHtml(c.name)+'</div><div class="ar">'+escapeHtml(c.area)+'</div></div>'+(c.live?'<span class="live">● LIVE</span>':'')+'</div></div>';
+      return '<div class="camtile2" data-cam="'+c.id+'">'+
+        '<div class="camframe">'+camFrame(c)+'</div>'+
+        '<div class="cap"><div><div class="nm">'+escapeHtml(c.name)+'</div><div class="ar">'+escapeHtml(c.area)+'</div></div>'+
+        '<button class="expand" data-expand="'+c.id+'" title="Enlarge">⤢</button></div>'+
+        '</div>';
     }).join("");
-  }
-  function refreshCamImages(){ camBust=Date.now(); if(state.view!=="cams")return;
-    document.querySelectorAll("#camgrid .camtile").forEach(function(t){ var c=byCam(t.getAttribute("data-cam")); var img=t.querySelector("img.pic"); if(c&&img){ img.style.display=""; img.src=camSrc(c); } });
   }
   function byCam(id){ return CAMS.filter(function(c){return c.id===id;})[0]; }
   function openCam(id){ var c=byCam(id); if(!c)return;
     document.getElementById("modal").className="modal cammodal";
     document.getElementById("modal").innerHTML='<div class="mhead"><h3>'+escapeHtml(c.name)+' <span style="color:var(--ink-faint);font-weight:400;font-size:13px">· '+escapeHtml(c.area)+'</span></h3><button class="close" data-close="1">✕</button></div>'+
-      '<img class="big" src="'+camSrc(c)+'" alt="'+escapeHtml(c.name)+'">'+
-      '<div class="src">Live · refreshes each minute · source: kamere.dars.si</div>';
+      '<div class="camframe big">'+camFrame(c)+'</div>'+
+      '<div class="src">Live · press play · clock icon = timelapse where available · source: whatsupcams.com</div>';
     document.getElementById("overlay").classList.add("open");
   }
 
@@ -570,7 +588,7 @@
     document.getElementById("refresh").addEventListener("click",function(){ var ic=document.getElementById("refIcon"); if(ic)ic.textContent="…"; loadData().then(function(){ if(ic)ic.textContent="↻"; }); });
     document.getElementById("camsBtn").addEventListener("click",function(){ state.view="cams"; setSeg("viewSeg","data-v","cams"); applyView(); render(); });
     document.getElementById("overlay").addEventListener("click",function(e){ if(e.target.id==="overlay"||e.target.getAttribute("data-close"))closeCams(); });
-    document.getElementById("camgrid").addEventListener("click",function(e){ var t=e.target.closest("[data-cam]"); if(t)openCam(t.getAttribute("data-cam")); });
+    document.getElementById("camgrid").addEventListener("click",function(e){ var t=e.target.closest("[data-expand]"); if(t)openCam(t.getAttribute("data-expand")); });
 
     document.getElementById("lists").addEventListener("click",function(e){
       var t=e.target.closest("[data-list]"); if(t){ state.active=t.getAttribute("data-list"); persist(); renderLists(); render(); return; }
@@ -660,7 +678,6 @@
       refreshThreshUI();
       initMap(); wire(); applyView(); renderLists(); render();
       loadData(); setInterval(loadData, 5*60000);
-      setInterval(refreshCamImages, 60000);
     });
   }
   if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",boot); } else { boot(); }
