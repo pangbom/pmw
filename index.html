@@ -425,20 +425,22 @@
   }
 
   // ---- wind-barb markers (style: "Open pennants" — long thin staff, hollow 50-kt pennants) ----
-  function barbGroup(kt){
-    var L=26, bl=8, sp=3.6, dark="#0d151f"; var spd=Math.round(kt/5)*5; if(spd<2.5) return "";
+  // Barb colours flip with the basemap so they stay legible: light ink on dark maps, dark ink on light/terrain maps.
+  function barbColors(){ var lightBase=(state.basemap==="light"||state.basemap==="terrain"); return lightBase?{fg:"#0b1119",halo:"#ffffff"}:{fg:"#ffffff",halo:"#0b1119"}; }
+  function barbGroup(kt,fg,halo){
+    var L=26, bl=8, sp=3.6; var spd=Math.round(kt/5)*5; if(spd<2.5) return "";
     var pen=Math.floor(spd/50), rem=spd-pen*50, full=Math.floor(rem/10), half=Math.floor((rem-full*10)/5);
     var prim=[]; prim.push({t:"line",x1:0,y1:0,x2:0,y2:-L}); var pos=L, i;
     for(i=0;i<pen;i++){ prim.push({t:"poly",pts:[[0,-pos],[0,-(pos-sp*1.7)],[-bl,-(pos-sp*0.85)]]}); pos-=sp*1.95; }
     for(i=0;i<full;i++){ prim.push({t:"line",x1:0,y1:-pos,x2:-bl,y2:-(pos-bl*0.5)}); pos-=sp; }
     for(i=0;i<half;i++){ if(pen===0&&full===0){ pos-=sp; } prim.push({t:"line",x1:0,y1:-pos,x2:-bl*0.5,y2:-(pos-bl*0.25)}); pos-=sp; }
     function draw(color,w){ return prim.map(function(p){ if(p.t==="line") return '<line x1="'+p.x1+'" y1="'+p.y1.toFixed(1)+'" x2="'+p.x2.toFixed(1)+'" y2="'+p.y2.toFixed(1)+'" stroke="'+color+'" stroke-width="'+w+'" stroke-linecap="round"/>'; return '<polygon points="'+p.pts.map(function(q){return q[0]+","+q[1].toFixed(1);}).join(" ")+'" fill="none" stroke="'+color+'" stroke-width="'+w+'" stroke-linejoin="round"/>'; }).join(""); }
-    return draw(dark,2.8)+draw("#fff",1.0);
+    return draw(halo,3.0)+draw(fg,1.1);
   }
   function windMarkerHtml(s){
-    var kt=knots(s.wind), calm=kt<2.5, barb=calm?"":barbGroup(kt);
+    var kt=knots(s.wind), calm=kt<2.5, col=barbColors(), barb=calm?"":barbGroup(kt,col.fg,col.halo);
     var r=calm?5.2:2.6;
-    var ring='<circle cx="0" cy="0" r="'+r+'" fill="#0d151f" stroke="#0d151f" stroke-width="2.8"/><circle cx="0" cy="0" r="'+r+'" fill="none" stroke="#fff" stroke-width="'+(calm?1.5:1.1)+'"/>';
+    var ring='<circle cx="0" cy="0" r="'+r+'" fill="'+col.halo+'" stroke="'+col.halo+'" stroke-width="2.8"/><circle cx="0" cy="0" r="'+r+'" fill="none" stroke="'+col.fg+'" stroke-width="'+(calm?1.6:1.2)+'"/>';
     var svg='<svg width="60" height="62" viewBox="0 0 60 62"><g transform="translate(30,34)"><g transform="rotate('+s.dir+')">'+barb+'</g>'+ring+'</g></svg>';
     return '<div class="wm">'+svg+'</div>';
   }
@@ -490,7 +492,7 @@
     dark:{url:"https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",opts:{maxZoom:16,attribution:"\u00a9 Esri, \u00a9 OpenStreetMap contributors"}}
   };
   var tileLayer=null;
-  function setBasemap(key,save){ if(!map)return; var b=BASEMAPS[key]||BASEMAPS.light; if(tileLayer)map.removeLayer(tileLayer); tileLayer=L.tileLayer(b.url,b.opts).addTo(map); state.basemap=key; var sel=document.getElementById("basemapSel"); if(sel)sel.value=key; if(save)persist(); }
+  function setBasemap(key,save){ if(!map)return; var b=BASEMAPS[key]||BASEMAPS.light; if(tileLayer)map.removeLayer(tileLayer); tileLayer=L.tileLayer(b.url,b.opts).addTo(map); state.basemap=key; var sel=document.getElementById("basemapSel"); if(sel)sel.value=key; if(save)persist(); if(state.view==="map")renderMarkers(visibleStations()); }
 
   function setSeg(id,attr,val){ document.querySelectorAll("#"+id+" button").forEach(function(b){ b.classList.toggle("on",b.getAttribute(attr)===String(val)); }); }
   function applyView(){
