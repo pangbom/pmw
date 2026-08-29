@@ -139,8 +139,9 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
 (async () => {
   // Previous data.json = last-good snapshot. Used to carry stations forward when a source
   // hiccups this run, so a single failed fetch never blanks the board (stale ones just age).
+  const DATA_FILE = process.env.DATA_FILE || 'data.json';
   let prev = {};
-  try { const p = JSON.parse(fs.readFileSync('data.json','utf8')); (p.stations||[]).forEach(s=>{ prev[s.id]=s; }); } catch(e) {}
+  try { const p = JSON.parse(fs.readFileSync(DATA_FILE,'utf8')); (p.stations||[]).forEach(s=>{ prev[s.id]=s; }); } catch(e) {}
 
   const browser = await chromium.launch();
   const page = await browser.newPage({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36' });
@@ -174,6 +175,6 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
 
   if (!stations.length) { console.error('No stations collected and no previous snapshot — aborting.'); process.exit(1); }
   const out = { generated: new Date().toISOString(), source: 'skytech.si + ARSO + Wunderground PWS', stations };
-  fs.writeFileSync('data.json', JSON.stringify(out));
+  fs.writeFileSync(DATA_FILE, JSON.stringify(out));
   console.log('Wrote data.json with', stations.length, 'stations at', out.generated);
 })();

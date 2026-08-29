@@ -1,0 +1,82 @@
+name: Live loop (wind + cams)
+
+# One long-running job that refreshes wind AND captures a webcam frame from every cam
+# every ~3 minutes, writing to the single-commit `camstore` branch (force-amended, so 24h
+# of frames never bloats git and no Pages rebuild is triggered). The board reads everything
+# from that branch via raw.githubusercontent. Near the 6h job cap the job relaunches itself
+# (needs the PMW_PAT secret); a sparse cron is a backup in case the chain ever breaks.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 */3 * * *'   # backup relaunch every ~3h (sparse crons are honored far more reliably than dense ones)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pmw-loop
+  cancel-in-progress: false
+
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350   # ~5h50m, just under GitHub's 6h hard cap
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Refresh loop (wind + cams every ~3 min)
+        env:
+          WU_KEY: ${{ secrets.WU_KEY }}
+          PMW_PAT: ${{ secrets.PMW_PAT }}
+        run: |
+          git config user.name "pmw-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # camstore worktree: reuse the branch, else start an orphan (single-commit history).
+          git fetch origin camstore || true
+          if git show-ref --quiet refs/remotes/origin/camstore; then
+            git worktree add camstore-wt origin/camstore
+            ( cd camstore-wt && git checkout -B camstore )
+          else
+            git worktree add --detach camstore-wt HEAD
+            ( cd camstore-wt && git checkout --orphan camstore && git rm -rf . >/dev/null 2>&1 || true )
+          fi
+
+          END=$(( $(date +%s) + 330*60 ))   # loop for ~5.5h, then relaunch
+          CYCLE=0
+          while [ $(date +%s) -lt $END ]; do
+            CYCLE=$((CYCLE+1))
+            START=$(date +%s)
+
+            DATA_FILE=camstore-wt/data.json node collector.js || echo "collector failed (cycle $CYCLE)"
+            CAM_DIR=camstore-wt LATEST_OUT=camstore-wt/cams-latest.json node capture-cams.js || echo "capture failed (cycle $CYCLE)"
+
+            # Commit everything to camstore as a single amended commit, force-pushed (no bloat).
+            ( cd camstore-wt
+              git add -A
+              if [ -n "$(git status --porcelain)" ]; then
+                git commit -q --amend -m "live $(date -u +%FT%TZ)" 2>/dev/null || git commit -q -m "live $(date -u +%FT%TZ)"
+                for i in 1 2 3; do git push -q --force origin camstore && break; sleep 3; done
+              fi )
+
+            SLEEP=$(( 180 - ($(date +%s) - START) ))
+            [ $SLEEP -gt 0 ] && sleep $SLEEP || true
+          done
+
+          echo "Loop finished $CYCLE cycles; relaunching."
+          if [ -n "$PMW_PAT" ]; then
+            curl -s -o /dev/null -w "relaunch dispatch: %{http_code}\n" -X POST \
+              -H "Authorization: token $PMW_PAT" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/pangbom/pmw/actions/workflows/loop.yml/dispatches" -d '{"ref":"main"}'
+          else
+            echo "PMW_PAT not set — relying on the backup cron to relaunch."
+          fi
