@@ -30,7 +30,7 @@ const DIAG = [];
 const sleep = ms => new Promise(r=>setTimeout(r, ms));
 async function grabOnce(id){
   const ctrl = new AbortController();
-  const timer = setTimeout(()=>ctrl.abort(), 25000);
+  const timer = setTimeout(()=>ctrl.abort(), 12000);
   try {
     const r = await fetch(SNAP(id), { signal: ctrl.signal, headers: {
       'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
@@ -54,26 +54,41 @@ async function grab(id){
       if(attempt===2) DIAG.push({ id, error: e.message, attempt });
       console.error('cam', id, 'failed (attempt', attempt+'):', e.message);
     }
-    if(attempt<2) await sleep(1500);
+    if(attempt<2) await sleep(1000);
   }
   return null;
 }
 
+// Run async tasks with limited concurrency so total time stays bounded (10 cams, some slow).
+async function pool(items, n, fn){
+  const out = new Array(items.length); let idx = 0;
+  async function worker(){ while(idx < items.length){ const i = idx++; out[i] = await fn(items[i], i); } }
+  await Promise.all(Array.from({length: Math.min(n, items.length)}, worker));
+  return out;
+}
+
 (async () => {
   const now = Date.now();
-  const latest = [];
+
+  // Prune >retention frames and snapshot each cam's existing frame list.
+  const existing = {};
   for(const c of cams){
     const dir = path.join(CAM_DIR, 'cams', c.id);
     fs.mkdirSync(dir, { recursive: true });
-
-    // Existing frames, sorted oldest→newest; prune >retention.
     let files = fs.readdirSync(dir).filter(f => frameEpoch(f) != null).sort((a,b)=>frameEpoch(a)-frameEpoch(b));
     for(const f of files){ if(now - frameEpoch(f) > RETENTION_MS){ try{ fs.unlinkSync(path.join(dir,f)); }catch(e){} } }
-    files = fs.readdirSync(dir).filter(f => frameEpoch(f) != null).sort((a,b)=>frameEpoch(a)-frameEpoch(b));
+    existing[c.id] = fs.readdirSync(dir).filter(f => frameEpoch(f) != null).sort((a,b)=>frameEpoch(a)-frameEpoch(b));
+  }
 
-    const buf = await grab(c.id);
+  // Grab all snapshots with limited concurrency (bounded total time).
+  const bufs = await pool(cams, 4, c => grab(c.id));
+
+  // Write new frames (dedup vs newest existing) and build the latest-frame pointers.
+  const latest = cams.map((c, ci) => {
+    const dir = path.join(CAM_DIR, 'cams', c.id);
+    const files = existing[c.id].slice();
+    const buf = bufs[ci];
     if(buf){
-      // Dedup: skip if identical to the newest existing frame.
       let dup = false;
       if(files.length){
         try { const prev = fs.readFileSync(path.join(dir, files[files.length-1])); dup = (prev.length===buf.length && sha1(prev)===sha1(buf)); } catch(e){}
@@ -81,14 +96,12 @@ async function grab(id){
       if(!dup){ fs.writeFileSync(path.join(dir, now + '.jpg'), buf); files.push(now + '.jpg'); }
       else { console.log('cam', c.id, 'unchanged — skipped'); }
     }
-
     const newest = files.length ? files[files.length-1] : null;
-    latest.push({ id:c.id, name:c.name, area:c.area,
+    return { id:c.id, name:c.name, area:c.area,
       latest: newest ? ('cams/'+c.id+'/'+newest) : null,
       t: newest ? frameEpoch(newest) : null,
-      count: files.length });
-    await sleep(300); // gentle spacing so the CDN doesn't rate-limit the burst
-  }
+      count: files.length };
+  });
 
   // Manifest (full 24h frame list) → camstore.
   const manifest = { generated: new Date(now).toISOString(), retentionH: RETENTION_H, base: RAW_BASE,
