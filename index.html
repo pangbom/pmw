@@ -158,6 +158,21 @@
   .ctip .dot{width:8px;height:8px;border-radius:50%}
   .ctip .vv{font-family:"IBM Plex Mono",monospace;font-weight:600}
 
+  .camsview{height:100%;overflow:auto;padding:14px 16px 34px}
+  .camnote{font-size:12.5px;color:var(--ink-dim);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px}
+  .camnote b{color:var(--ink)}
+  .camgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .camtile{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .12s}
+  .camtile:hover{border-color:var(--accent)}
+  .camtile .pic{aspect-ratio:16/9;width:100%;display:block;object-fit:cover;background:#0a141d}
+  .camtile .ph{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:12px;background:linear-gradient(180deg,#16324a,#0c1822)}
+  .camtile .cap{padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .camtile .cap .nm{font-weight:600;font-size:14px}
+  .camtile .cap .ar{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
+  .camtile .live{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;letter-spacing:.06em;background:var(--go);color:#04120a;border-radius:4px;padding:1px 6px}
+  .cammodal .big{width:100%;border-radius:10px;display:block;background:#0a141d;aspect-ratio:16/9;object-fit:cover}
+  .cammodal .mh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:10px}
+  .cammodal .src{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);margin-top:9px}
   .overlay{position:fixed;inset:0;background:rgba(6,12,18,.72);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
   .overlay.open{display:flex}
   .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:860px;width:100%;max-height:86vh;overflow:auto;padding:16px 18px}
@@ -180,7 +195,7 @@
   <div class="brand"><h1>Pure Mountain Weather</h1></div>
   <div class="spacer"></div>
   <div class="controls">
-    <div class="ctl"><label>View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button></div></div>
+    <div class="ctl"><label>View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button></div></div>
     <div class="ctl"><label>Unit</label><div class="seg" id="unitSeg"><button data-u="kn">kt</button><button data-u="ms">m/s</button><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div></div>
     <div class="ctl"><label>Caution &#8805;</label><input class="num" id="caution" type="number" min="0" step="0.5"><span id="cautionUnit">m/s</span></div>
     <div class="ctl"><label>Danger &#8805;</label><input class="num" id="danger" type="number" min="0" step="0.5"><span id="dangerUnit">m/s</span></div>
@@ -207,6 +222,10 @@
       <div class="chartlegend" id="chartlegend"></div>
     </div>
     <div class="chartwrap" id="chartwrap"></div>
+  </div>
+  <div class="camsview" id="camsview" style="display:none">
+    <div class="camnote" id="camnote"></div>
+    <div class="camgrid2" id="camgrid"></div>
   </div>
 </div>
 
@@ -421,7 +440,38 @@
   function render(){ var vis=visibleStations();
     if(state.view==="map"){ renderCards(vis); renderMarkers(vis); }
     else if(state.view==="list"){ renderTable(vis); }
+    else if(state.view==="cams"){ renderCams(); }
     else{ renderChart(); }
+  }
+
+  // ---- Cams view (live webcam previews) ----
+  var CAMS=[
+    { id:"predel", name:"Predel pass", area:"Log pod Mangartom side", url:"https://kamere.dars.si/kamere/drsi_vgrc/Predel_Pre1_0001.jpg", live:true },
+    { id:"ucja",   name:"Učja",        area:"Žaga / Bovec approach",  url:"https://kamere.dars.si/kamere/drsi_vgrc/Ucja_Ucj1_0001.jpg",   live:true }
+  ];
+  var camBust=Date.now(), camTimer=null;
+  function camSrc(c){ return c.url+(c.url.indexOf("?")>=0?"&":"?")+"t="+camBust; }
+  function renderCams(){
+    var note=document.getElementById("camnote");
+    note.innerHTML='<b>Live webcams.</b> Direct views that refresh every minute. A 24-hour scrub-back timeline and more angles (Kanin, launch cams…) are next — tell me which cams you want and I’ll add them.';
+    var grid=document.getElementById("camgrid");
+    if(!CAMS.length){ grid.innerHTML='<div class="camnote">No cams yet.</div>'; return; }
+    grid.innerHTML=CAMS.map(function(c){
+      return '<div class="camtile" data-cam="'+c.id+'">'+
+        '<img class="pic" src="'+camSrc(c)+'" alt="'+escapeHtml(c.name)+'" onerror="this.style.display=\'none\';this.insertAdjacentHTML(\'afterend\',\'<div class=&quot;ph&quot;>view momentarily unavailable</div>\')">'+
+        '<div class="cap"><div><div class="nm">'+escapeHtml(c.name)+'</div><div class="ar">'+escapeHtml(c.area)+'</div></div>'+(c.live?'<span class="live">● LIVE</span>':'')+'</div></div>';
+    }).join("");
+  }
+  function refreshCamImages(){ camBust=Date.now(); if(state.view!=="cams")return;
+    document.querySelectorAll("#camgrid .camtile").forEach(function(t){ var c=byCam(t.getAttribute("data-cam")); var img=t.querySelector("img.pic"); if(c&&img){ img.style.display=""; img.src=camSrc(c); } });
+  }
+  function byCam(id){ return CAMS.filter(function(c){return c.id===id;})[0]; }
+  function openCam(id){ var c=byCam(id); if(!c)return;
+    document.getElementById("modal").className="modal cammodal";
+    document.getElementById("modal").innerHTML='<div class="mhead"><h3>'+escapeHtml(c.name)+' <span style="color:var(--ink-faint);font-weight:400;font-size:13px">· '+escapeHtml(c.area)+'</span></h3><button class="close" data-close="1">✕</button></div>'+
+      '<img class="big" src="'+camSrc(c)+'" alt="'+escapeHtml(c.name)+'">'+
+      '<div class="src">Live · refreshes each minute · source: kamere.dars.si</div>';
+    document.getElementById("overlay").classList.add("open");
   }
 
   // ---- wind-barb markers (style: "Open pennants" — long thin staff, hollow 50-kt pennants) ----
@@ -483,7 +533,7 @@
   function openCams(single){ var cams=single?[byId(single)]:STATIONS.filter(function(s){return s.cam;});
     document.getElementById("modal").innerHTML='<div class="mhead"><h3>'+(single?escapeHtml(cams[0].name)+" webcam":"So\u010da valley webcams")+'</h3><button class="close" data-close="1">\u2715</button></div><div class="camgrid">'+cams.map(camCard).join("")+'</div><div class="sparklab" style="margin-top:12px;font-size:11.5px">Preview placeholders. The real app shows live cam images/streams here.</div>';
     document.getElementById("overlay").classList.add("open"); }
-  function closeCams(){ document.getElementById("overlay").classList.remove("open"); }
+  function closeCams(){ document.getElementById("overlay").classList.remove("open"); document.getElementById("modal").className="modal"; }
 
   var BASEMAPS={
     light:{url:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",opts:{maxZoom:19,subdomains:"abc",attribution:"\u00a9 OpenStreetMap contributors"}},
@@ -499,6 +549,7 @@
     document.getElementById("mapview").style.display=state.view==="map"?"":"none";
     document.getElementById("listview").style.display=state.view==="list"?"":"none";
     document.getElementById("chartview").style.display=state.view==="chart"?"":"none";
+    document.getElementById("camsview").style.display=state.view==="cams"?"":"none";
     document.getElementById("legend").style.display=state.view==="map"?"":"none";
     if(state.view==="map"&&map){ setTimeout(function(){ map.invalidateSize(); },60); }
   }
@@ -517,8 +568,9 @@
     cEl.addEventListener("change",function(){ state.caution=dispToKnots(+cEl.value||0); persist(); refreshThreshUI(); render(); });
     dEl.addEventListener("change",function(){ state.danger=dispToKnots(+dEl.value||0); persist(); refreshThreshUI(); render(); });
     document.getElementById("refresh").addEventListener("click",function(){ var ic=document.getElementById("refIcon"); if(ic)ic.textContent="…"; loadData().then(function(){ if(ic)ic.textContent="↻"; }); });
-    document.getElementById("camsBtn").addEventListener("click",function(){ openCams(null); });
+    document.getElementById("camsBtn").addEventListener("click",function(){ state.view="cams"; setSeg("viewSeg","data-v","cams"); applyView(); render(); });
     document.getElementById("overlay").addEventListener("click",function(e){ if(e.target.id==="overlay"||e.target.getAttribute("data-close"))closeCams(); });
+    document.getElementById("camgrid").addEventListener("click",function(e){ var t=e.target.closest("[data-cam]"); if(t)openCam(t.getAttribute("data-cam")); });
 
     document.getElementById("lists").addEventListener("click",function(e){
       var t=e.target.closest("[data-list]"); if(t){ state.active=t.getAttribute("data-list"); persist(); renderLists(); render(); return; }
@@ -608,6 +660,7 @@
       refreshThreshUI();
       initMap(); wire(); applyView(); renderLists(); render();
       loadData(); setInterval(loadData, 5*60000);
+      setInterval(refreshCamImages, 60000);
     });
   }
   if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",boot); } else { boot(); }
