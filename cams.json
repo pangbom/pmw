@@ -1,0 +1,12 @@
+[
+  { "id": "si_bovec03",      "name": "Skydive Bovec",       "area": "airport dropzone · valley" },
+  { "id": "si_bovec02",      "name": "Bovec airport",       "area": "view to Kanin" },
+  { "id": "si_kanin01",      "name": "Kanin – Prestreljenik", "area": "high ridge · ~2200 m" },
+  { "id": "si_kanin02",      "name": "Kanin – to Bovec",    "area": "top station · valley" },
+  { "id": "si_kanin03",      "name": "Kanin – Graben",      "area": "ski resort" },
+  { "id": "si_kanin04",      "name": "Kanin – Prevala",     "area": "resort saddle" },
+  { "id": "si_logmangart02", "name": "Log pod Mangartom",   "area": "Jerebica & Rombon" },
+  { "id": "si_logmangart01", "name": "Log Mangartom park",  "area": "adventure resort" },
+  { "id": "si_cezsoca01",    "name": "Čezsoča",             "area": "Soča river" },
+  { "id": "si_bovec",        "name": "Bovec town",          "area": "main square" }
+]

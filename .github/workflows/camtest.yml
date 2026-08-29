@@ -1,0 +1,55 @@
+name: Cam capture test (one-shot)
+
+# Manual only. Proves the whatsupcams snapshot capture + the single-commit camstore branch
+# work on the runner, before wiring capture into the continuous refresh loop.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  camtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Capture snapshots -> camstore branch, latest -> main
+        run: |
+          git config user.name "pmw-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # camstore worktree: reuse existing branch, else start an orphan (single-commit history).
+          git fetch origin camstore || true
+          if git show-ref --quiet refs/remotes/origin/camstore; then
+            git worktree add camstore-wt origin/camstore
+            ( cd camstore-wt && git checkout -B camstore )
+          else
+            git worktree add --detach camstore-wt HEAD
+            ( cd camstore-wt && git checkout --orphan camstore && git rm -rf . >/dev/null 2>&1 || true )
+          fi
+
+          CAM_DIR=camstore-wt LATEST_OUT=cams-latest.json node capture-cams.js
+
+          # camstore: keep history to a single commit (amend + force) so 24h of frames never bloats git.
+          ( cd camstore-wt
+            git add -A
+            git commit --amend -m "cam frames $(date -u +%FT%TZ)" || git commit -m "cam frames $(date -u +%FT%TZ)" || echo "nothing to commit"
+            git push --force origin camstore )
+
+          # main: the fresh latest-frame pointers (small).
+          git add cams-latest.json
+          if ! git diff --staged --quiet; then
+            git commit -m "cam latest $(date -u +%FT%TZ)"
+            for i in 1 2 3; do git push && break; git pull --rebase --autostash origin main || true; sleep 2; done
+          fi
+
+          echo "=== camstore size ==="
+          du -sh camstore-wt/cams 2>/dev/null || true
+          echo "=== latest ==="
+          cat cams-latest.json
