@@ -1,6 +1,8 @@
 [
   { "id": "arso_bovec_nw",    "name": "Bovec airport – NW",  "area": "dropzone · view NW",        "url": "https://meteo.arso.gov.si/uploads/probase/www/observ/webcam/BOVEC_dir/siwc_BOVEC_nw_pda.jpg" },
   { "id": "arso_bovec_ne",    "name": "Bovec airport – NE",  "area": "dropzone · view NE",        "url": "https://meteo.arso.gov.si/uploads/probase/www/observ/webcam/BOVEC_dir/siwc_BOVEC_ne_pda.jpg" },
+  { "id": "dars_predel",      "name": "Predel pass",         "area": "N approach · Log p. Mangartom side", "url": "https://kamere.dars.si/kamere/drsi_vgrc/Predel_Pre1_0001.jpg", "proxy": "wsrv" },
+  { "id": "dars_ucja",        "name": "Učja crossing",       "area": "SW approach · Žaga / Bovec", "url": "https://kamere.dars.si/kamere/drsi_vgrc/Ucja_Ucj1_0001.jpg", "proxy": "wsrv" },
   { "id": "arso_kredarica_e", "name": "Kredarica – E",       "area": "2514 m · Julian Alps",      "url": "https://meteo.arso.gov.si/uploads/probase/www/observ/webcam/KREDA-ICA_dir/siwc_KREDA-ICA_e_pda.jpg" },
   { "id": "arso_kredarica_se","name": "Kredarica – SE",      "area": "2514 m · toward Bohinj",    "url": "https://meteo.arso.gov.si/uploads/probase/www/observ/webcam/KREDA-ICA_dir/siwc_KREDA-ICA_se_pda.jpg" },
   { "id": "si_logmangart01",  "name": "Log pod Mangartom",   "area": "valley · adventure resort", "url": "https://cdn.whatsupcams.com/snapshot/si_logmangart01.jpg", "referer": "https://services.whatsupcams.com/" }

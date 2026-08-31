@@ -21,6 +21,12 @@ const LATEST_OUT = process.env.LATEST_OUT || 'cams-latest.json';
 const RAW_BASE = process.env.RAW_BASE || 'https://raw.githubusercontent.com/pangbom/pmw/camstore/';
 // Each cam in cams.json carries its own direct-image URL (ARSO / DARS / whatsupcams / …).
 const bust = u => u + (u.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+// Some sources (DARS) block GitHub's runner IPs — route them through the wsrv.nl image proxy.
+// Cache-bust the INNER url so the proxy fetches a fresh frame each pass.
+function fetchUrl(cam){
+  if(cam.proxy === 'wsrv') return 'https://wsrv.nl/?url=' + encodeURIComponent(bust(cam.url)) + '&output=jpg';
+  return bust(cam.url);
+}
 // Real webcam JPEGs are several KB+. Anything tiny is an "image not available" placeholder
 // (e.g. ARSO's ~1.6 KB offline card) — skip it so offline cams don't pollute the timelapse.
 const MIN_BYTES = 4000;
@@ -41,7 +47,7 @@ async function grabOnce(cam){
       'Accept': 'image/avif,image/webp,image/*,*/*'
     };
     if(cam.referer){ headers['Referer'] = cam.referer; headers['Origin'] = cam.referer.replace(/\/$/,''); }
-    const r = await fetch(bust(cam.url), { signal: ctrl.signal, headers });
+    const r = await fetch(fetchUrl(cam), { signal: ctrl.signal, headers });
     const buf = Buffer.from(await r.arrayBuffer());
     const jpeg = buf.length > 1024 && buf[0] === 0xFF && buf[1] === 0xD8;
     return { status: r.status, ok: r.ok, buf, jpeg };
