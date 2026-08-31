@@ -1,0 +1,61 @@
+{
+ "generated": "2026-08-31T06:55:38.955Z",
+ "results": [
+  {
+   "id": "arso_bovec_nw",
+   "status": 200,
+   "bytes": 1665,
+   "jpeg": true
+  },
+  {
+   "id": "arso_bovec_ne",
+   "status": 200,
+   "bytes": 1665,
+   "jpeg": true
+  },
+  {
+   "id": "arso_bovec_nw_lg",
+   "status": 404,
+   "bytes": 266,
+   "jpeg": false
+  },
+  {
+   "id": "arso_kredarica_e",
+   "status": 200,
+   "bytes": 8654,
+   "jpeg": true
+  },
+  {
+   "id": "arso_kredarica_se",
+   "status": 200,
+   "bytes": 8174,
+   "jpeg": true
+  },
+  {
+   "id": "dars_predel",
+   "error": "UND_ERR_CONNECT_TIMEOUT",
+   "retryInsecure": {
+    "error": "timeout",
+    "insecure": true
+   }
+  },
+  {
+   "id": "dars_ucja",
+   "error": "UND_ERR_CONNECT_TIMEOUT",
+   "retryInsecure": {
+    "error": "timeout",
+    "insecure": true
+   }
+  },
+  {
+   "id": "wu_logmangart",
+   "error": "This operation was aborted",
+   "retryInsecure": {
+    "status": 200,
+    "bytes": 52436,
+    "jpeg": true,
+    "insecure": true
+   }
+  }
+ ]
+}
