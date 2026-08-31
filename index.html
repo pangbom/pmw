@@ -469,7 +469,7 @@
 
   function renderCams(){
     var note=document.getElementById("camnote");
-    note.innerHTML='<b>Live webcams — Bovec &amp; Soča valley.</b> Newest frame from each cam; click one to open its 24-hour timelapse and scrub back through the day. Frames captured every ~3 min. Source: whatsupcams.com.';
+    note.innerHTML='<b>Live webcams — Bovec &amp; Julian Alps.</b> Newest frame from each cam; click one to open its 24-hour timelapse and scrub back through the day. Frames captured every ~3 min. Sources: ARSO (meteo.si) + whatsupcams. A cam shows “no frame yet” while its camera is offline.';
     var grid=document.getElementById("camgrid");
     if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Loading cams…</div>';
     fetch(LIVE_BASE+"cams-latest.json?ts="+Date.now(),{cache:"no-store"})

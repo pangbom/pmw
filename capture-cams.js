@@ -21,6 +21,9 @@ const LATEST_OUT = process.env.LATEST_OUT || 'cams-latest.json';
 const RAW_BASE = process.env.RAW_BASE || 'https://raw.githubusercontent.com/pangbom/pmw/camstore/';
 // Each cam in cams.json carries its own direct-image URL (ARSO / DARS / whatsupcams / …).
 const bust = u => u + (u.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+// Real webcam JPEGs are several KB+. Anything tiny is an "image not available" placeholder
+// (e.g. ARSO's ~1.6 KB offline card) — skip it so offline cams don't pollute the timelapse.
+const MIN_BYTES = 4000;
 
 const cams = JSON.parse(fs.readFileSync('cams.json', 'utf8'));
 
@@ -48,9 +51,11 @@ async function grab(cam){
   for(let attempt=1; attempt<=2; attempt++){
     try {
       const r = await grabOnce(cam);
-      if(attempt===2 || (r.ok && r.jpeg)) DIAG.push({ id: cam.id, status: r.status, bytes: r.buf.length, jpeg: r.jpeg, attempt });
-      if(r.ok && r.jpeg) return r.buf;
-      console.error('cam', cam.id, 'HTTP', r.status, 'jpeg', r.jpeg, '(attempt', attempt+')');
+      const good = r.ok && r.jpeg && r.buf.length >= MIN_BYTES;
+      if(attempt===2 || good) DIAG.push({ id: cam.id, status: r.status, bytes: r.buf.length, jpeg: r.jpeg, placeholder: (r.jpeg && r.buf.length < MIN_BYTES) || undefined, attempt });
+      if(good) return r.buf;
+      if(r.jpeg && r.buf.length < MIN_BYTES) console.log('cam', cam.id, 'placeholder/offline ('+r.buf.length+'B) — skipped');
+      else console.error('cam', cam.id, 'HTTP', r.status, 'jpeg', r.jpeg, '(attempt', attempt+')');
     } catch(e){
       if(attempt===2) DIAG.push({ id: cam.id, error: e.message, attempt });
       console.error('cam', cam.id, 'failed (attempt', attempt+'):', e.message);
@@ -103,6 +108,12 @@ async function pool(items, n, fn){
       t: newest ? frameEpoch(newest) : null,
       count: files.length };
   });
+
+  // Remove folders for cams no longer in cams.json (keeps the branch clean when the set changes).
+  const keep = new Set(cams.map(c=>c.id));
+  try { fs.readdirSync(path.join(CAM_DIR, 'cams'), { withFileTypes:true })
+    .filter(d => d.isDirectory() && !keep.has(d.name))
+    .forEach(d => { try { fs.rmSync(path.join(CAM_DIR,'cams',d.name), { recursive:true, force:true }); console.log('removed retired cam dir', d.name); } catch(e){} }); } catch(e){}
 
   // Manifest (full 24h frame list) → camstore.
   const manifest = { generated: new Date(now).toISOString(), retentionH: RETENTION_H, base: RAW_BASE,
