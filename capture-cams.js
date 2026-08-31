@@ -19,7 +19,8 @@ const RETENTION_MS = RETENTION_H * 3600 * 1000;
 const CAM_DIR = process.env.CAM_DIR || 'camstore';           // camstore worktree root
 const LATEST_OUT = process.env.LATEST_OUT || 'cams-latest.json';
 const RAW_BASE = process.env.RAW_BASE || 'https://raw.githubusercontent.com/pangbom/pmw/camstore/';
-const SNAP = id => `https://cdn.whatsupcams.com/snapshot/${id}.jpg?t=${Date.now()}`;
+// Each cam in cams.json carries its own direct-image URL (ARSO / DARS / whatsupcams / …).
+const bust = u => u + (u.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
 
 const cams = JSON.parse(fs.readFileSync('cams.json', 'utf8'));
 
@@ -28,31 +29,31 @@ function frameEpoch(fname){ const m = fname.match(/^(\d+)\.jpg$/); return m ? +m
 
 const DIAG = [];
 const sleep = ms => new Promise(r=>setTimeout(r, ms));
-async function grabOnce(id){
+async function grabOnce(cam){
   const ctrl = new AbortController();
   const timer = setTimeout(()=>ctrl.abort(), 12000);
   try {
-    const r = await fetch(SNAP(id), { signal: ctrl.signal, headers: {
+    const headers = {
       'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36',
-      'Referer': 'https://services.whatsupcams.com/',
-      'Origin': 'https://services.whatsupcams.com',
       'Accept': 'image/avif,image/webp,image/*,*/*'
-    } });
+    };
+    if(cam.referer){ headers['Referer'] = cam.referer; headers['Origin'] = cam.referer.replace(/\/$/,''); }
+    const r = await fetch(bust(cam.url), { signal: ctrl.signal, headers });
     const buf = Buffer.from(await r.arrayBuffer());
     const jpeg = buf.length > 1024 && buf[0] === 0xFF && buf[1] === 0xD8;
     return { status: r.status, ok: r.ok, buf, jpeg };
   } finally { clearTimeout(timer); }
 }
-async function grab(id){
+async function grab(cam){
   for(let attempt=1; attempt<=2; attempt++){
     try {
-      const r = await grabOnce(id);
-      if(attempt===2 || (r.ok && r.jpeg)) DIAG.push({ id, status: r.status, bytes: r.buf.length, jpeg: r.jpeg, attempt });
+      const r = await grabOnce(cam);
+      if(attempt===2 || (r.ok && r.jpeg)) DIAG.push({ id: cam.id, status: r.status, bytes: r.buf.length, jpeg: r.jpeg, attempt });
       if(r.ok && r.jpeg) return r.buf;
-      console.error('cam', id, 'HTTP', r.status, 'jpeg', r.jpeg, '(attempt', attempt+')');
+      console.error('cam', cam.id, 'HTTP', r.status, 'jpeg', r.jpeg, '(attempt', attempt+')');
     } catch(e){
-      if(attempt===2) DIAG.push({ id, error: e.message, attempt });
-      console.error('cam', id, 'failed (attempt', attempt+'):', e.message);
+      if(attempt===2) DIAG.push({ id: cam.id, error: e.message, attempt });
+      console.error('cam', cam.id, 'failed (attempt', attempt+'):', e.message);
     }
     if(attempt<2) await sleep(1000);
   }
@@ -81,7 +82,7 @@ async function pool(items, n, fn){
   }
 
   // Grab all snapshots with limited concurrency (bounded total time).
-  const bufs = await pool(cams, 4, c => grab(c.id));
+  const bufs = await pool(cams, 4, c => grab(c));
 
   // Write new frames (dedup vs newest existing) and build the latest-frame pointers.
   const latest = cams.map((c, ci) => {

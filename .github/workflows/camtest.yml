@@ -1,0 +1,31 @@
+name: Cam source test (one-shot)
+
+# Manual only. Verifies the new direct-image cam sources (ARSO / DARS / Promotur / whatsupcams)
+# actually fetch from the runner, without touching the live camstore branch.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  camtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Probe cam sources
+        run: |
+          git config user.name "pmw-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          CAM_DIR=camstore-test LATEST_OUT=cams-latest-test.json DIAG_OUT=cam-diag.json node capture-cams.js
+          echo "=== diag ==="
+          cat cam-diag.json
+          git add cam-diag.json
+          if ! git diff --staged --quiet; then
+            git commit -m "cam source probe $(date -u +%FT%TZ)"
+            for i in 1 2 3; do git push && break; git pull --rebase --autostash origin main || true; sleep 2; done
+          fi
