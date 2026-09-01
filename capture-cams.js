@@ -79,8 +79,46 @@ async function pool(items, n, fn){
   return out;
 }
 
+// ---- s53mv archive cams (s53mv.s5tech.net) ----
+// These serve a listable folder of timestamped 1920x1080 frames (~11 min cadence, ~3 days kept),
+// so we can pull the last 24h directly for an instant timelapse. Filenames encode LOCAL
+// (Europe/Ljubljana) time; convert to a UTC epoch. Frames are downscaled via wsrv to keep the
+// branch small. Backfill is capped per pass so the first fill spreads over a few cycles.
+const S53_BASE = 'http://s53mv.s5tech.net/ipcam/';
+const S53_BACKFILL_CAP = 14;   // newest-missing frames to fetch per cam per pass
+const S53_W = 1024, S53_Q = 72; // downscale width / quality via wsrv
+function s53Epoch(fname){
+  const m = fname.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{3})_/);
+  if(!m) return null;
+  const Y=+m[1],Mo=+m[2],D=+m[3],H=+m[4],Mi=+m[5],S=+m[6],ms=+m[7];
+  const offH = (Mo>=4 && Mo<=10) ? 2 : 1; // CEST / CET (DST edge days ignored)
+  return Date.UTC(Y,Mo-1,D,H,Mi,S,ms) - offH*3600*1000;
+}
+async function s53List(loc){
+  const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 20000);
+  try {
+    const r = await fetch(S53_BASE+loc+'/', { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
+    const txt = await r.text();
+    return [...new Set((txt.match(/[0-9.]+_01_\d{17}_TIMING\.jpg/g))||[])];
+  } catch(e){ console.error('s53mv', loc, 'list failed:', e.message); return []; }
+  finally { clearTimeout(t); }
+}
+async function s53Frame(loc, fname){
+  const src = S53_BASE+loc+'/'+fname;
+  const url = 'https://wsrv.nl/?url='+encodeURIComponent(src)+'&w='+S53_W+'&q='+S53_Q+'&output=jpg';
+  const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 15000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
+    const buf = Buffer.from(await r.arrayBuffer());
+    if(r.ok && buf.length>1024 && buf[0]===0xFF && buf[1]===0xD8) return buf;
+    return null;
+  } catch(e){ return null; } finally { clearTimeout(t); }
+}
+
 (async () => {
   const now = Date.now();
+  const simpleCams  = cams.filter(c => c.type !== 's53mv');
+  const archiveCams = cams.filter(c => c.type === 's53mv');
 
   // Prune >retention frames and snapshot each cam's existing frame list.
   const existing = {};
@@ -92,24 +130,43 @@ async function pool(items, n, fn){
     existing[c.id] = fs.readdirSync(dir).filter(f => frameEpoch(f) != null).sort((a,b)=>frameEpoch(a)-frameEpoch(b));
   }
 
-  // Grab all snapshots with limited concurrency (bounded total time).
-  const bufs = await pool(cams, 4, c => grab(c));
-
-  // Write new frames (dedup vs newest existing) and build the latest-frame pointers.
-  const latest = cams.map((c, ci) => {
+  // --- simple single-URL cams: one fresh grab each, dedup-write ---
+  const bufs = await pool(simpleCams, 4, c => grab(c));
+  simpleCams.forEach((c, ci) => {
     const dir = path.join(CAM_DIR, 'cams', c.id);
-    const files = existing[c.id].slice();
+    const files = existing[c.id];
     const buf = bufs[ci];
     if(buf){
       let dup = false;
-      if(files.length){
-        try { const prev = fs.readFileSync(path.join(dir, files[files.length-1])); dup = (prev.length===buf.length && sha1(prev)===sha1(buf)); } catch(e){}
-      }
+      if(files.length){ try { const prev = fs.readFileSync(path.join(dir, files[files.length-1])); dup = (prev.length===buf.length && sha1(prev)===sha1(buf)); } catch(e){} }
       if(!dup){ fs.writeFileSync(path.join(dir, now + '.jpg'), buf); files.push(now + '.jpg'); }
       else { console.log('cam', c.id, 'unchanged — skipped'); }
     }
+  });
+
+  // --- s53mv archive cams: sync the last 24h from their folder listing ---
+  const lists = await pool(archiveCams, 4, async c => ({ c, list: await s53List(c.loc) }));
+  const tasks = [];
+  for(const { c, list } of lists){
+    const have = new Set(existing[c.id].map(f => +f.replace('.jpg','')));
+    const wanted = list.map(fn => ({ fn, ep: s53Epoch(fn) }))
+      .filter(x => x.ep != null && (now - x.ep) <= RETENTION_MS && (now - x.ep) >= -300000 && !have.has(x.ep))
+      .sort((a,b)=>b.ep-a.ep).slice(0, S53_BACKFILL_CAP);   // newest-missing first, capped
+    wanted.forEach(w => tasks.push({ c, fn:w.fn, ep:w.ep }));
+    DIAG.push({ id:c.id, listed:list.length, downloading:wanted.length });
+  }
+  await pool(tasks, 4, async (task) => {
+    const buf = await s53Frame(task.c.loc, task.fn);
+    if(buf){ fs.writeFileSync(path.join(CAM_DIR,'cams',task.c.id, task.ep+'.jpg'), buf); }
+  });
+
+  // Build latest-frame pointers for every cam from what's now on disk.
+  const latest = cams.map((c) => {
+    const dir = path.join(CAM_DIR, 'cams', c.id);
+    let files = [];
+    try { files = fs.readdirSync(dir).filter(f => frameEpoch(f) != null).sort((a,b)=>frameEpoch(a)-frameEpoch(b)); } catch(e){}
     const newest = files.length ? files[files.length-1] : null;
-    return { id:c.id, name:c.name, area:c.area,
+    return { id:c.id, name:c.name, area:c.area, place:c.place||null,
       latest: newest ? ('cams/'+c.id+'/'+newest) : null,
       t: newest ? frameEpoch(newest) : null,
       count: files.length };
@@ -127,7 +184,7 @@ async function pool(items, n, fn){
       const dir = path.join(CAM_DIR, 'cams', c.id);
       let files = [];
       try { files = fs.readdirSync(dir).filter(f => frameEpoch(f) != null).sort((a,b)=>frameEpoch(a)-frameEpoch(b)); } catch(e){}
-      return { id:c.id, name:c.name, area:c.area, frames: files.map(f => ({ t: frameEpoch(f), f: 'cams/'+c.id+'/'+f })) };
+      return { id:c.id, name:c.name, area:c.area, place:c.place||null, frames: files.map(f => ({ t: frameEpoch(f), f: 'cams/'+c.id+'/'+f })) };
     }) };
   fs.mkdirSync(path.join(CAM_DIR, 'cams'), { recursive: true });
   fs.writeFileSync(path.join(CAM_DIR, 'cams', 'manifest.json'), JSON.stringify(manifest));
