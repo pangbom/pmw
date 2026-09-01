@@ -24,15 +24,15 @@ jobs:
           CAM_DIR=camstore-test LATEST_OUT=cams-latest-test.json DIAG_OUT=cam-diag.json node capture-cams.js
           echo "=== diag ==="; cat cam-diag.json
           echo; echo "=== sizes ==="; du -sh camstore-test/cams 2>/dev/null; du -sh camstore-test/cams/* 2>/dev/null | sort -h | tail -20
-          echo "=== per-cam frame counts + newest-frame time (UTC) vs now ==="
           node -e '
-            const fs=require("fs"),p=require("path"); const now=Date.now();
+            const fs=require("fs"),p=require("path"); const now=Date.now(); const out={now:new Date(now).toISOString(),cams:[]};
             for(const d of fs.readdirSync("camstore-test/cams",{withFileTypes:true})){
               if(!d.isDirectory())continue;
               const fr=fs.readdirSync(p.join("camstore-test/cams",d.name)).filter(f=>/^\d+\.jpg$/.test(f)).map(f=>+f.replace(".jpg","")).sort((a,b)=>a-b);
-              if(!fr.length){console.log(d.name,"= 0 frames");continue;}
-              const nw=fr[fr.length-1], ol=fr[0];
-              console.log(d.name,"=",fr.length,"frames  newest",new Date(nw).toISOString(),"("+Math.round((now-nw)/60000)+"m ago)  span",((nw-ol)/3600000).toFixed(1)+"h");
-            }'
-          git add cam-diag.json
+              if(!fr.length){out.cams.push({id:d.name,frames:0});continue;}
+              const nw=fr[fr.length-1],ol=fr[0];
+              out.cams.push({id:d.name,frames:fr.length,newest:new Date(nw).toISOString(),ageMin:Math.round((now-nw)/60000),spanH:+((nw-ol)/3600000).toFixed(1)});
+            }
+            fs.writeFileSync("cam-summary.json",JSON.stringify(out,null,1)); console.log(JSON.stringify(out,null,1));'
+          git add cam-diag.json cam-summary.json
           if ! git diff --staged --quiet; then git commit -m "cam probe $(date -u +%FT%TZ)"; for i in 1 2 3; do git push && break; git pull --rebase --autostash origin main || true; sleep 2; done; fi

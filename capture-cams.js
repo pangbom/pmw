@@ -87,10 +87,12 @@ async function pool(items, n, fn){
 const S53_BASE = 'http://s53mv.s5tech.net/ipcam/';
 const S53_BACKFILL_CAP = 14;   // newest-missing frames to fetch per cam per pass
 const S53_W = 1024, S53_Q = 72; // downscale width / quality via wsrv
+// Filenames vary per cam: "<ip>_01_YYYYMMDDHHMMSSmmm_TIMING.jpg" or "<name>_00_YYYYMMDDHHMMSS.jpg".
+const S53_FILE_RE = /[\w.\-]+_\d{2}_\d{14}(?:\d{3})?(?:_TIMING)?\.jpg/g;
 function s53Epoch(fname){
-  const m = fname.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{3})_/);
+  const m = fname.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{3})?(?:_TIMING)?\.jpg$/);
   if(!m) return null;
-  const Y=+m[1],Mo=+m[2],D=+m[3],H=+m[4],Mi=+m[5],S=+m[6],ms=+m[7];
+  const Y=+m[1],Mo=+m[2],D=+m[3],H=+m[4],Mi=+m[5],S=+m[6],ms=+(m[7]||0);
   const offH = (Mo>=4 && Mo<=10) ? 2 : 1; // CEST / CET (DST edge days ignored)
   return Date.UTC(Y,Mo-1,D,H,Mi,S,ms) - offH*3600*1000;
 }
@@ -99,7 +101,7 @@ async function s53List(loc){
   try {
     const r = await fetch(S53_BASE+loc+'/', { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
     const txt = await r.text();
-    return [...new Set((txt.match(/[0-9.]+_01_\d{17}_TIMING\.jpg/g))||[])];
+    return [...new Set((txt.match(S53_FILE_RE))||[])];
   } catch(e){ console.error('s53mv', loc, 'list failed:', e.message); return []; }
   finally { clearTimeout(t); }
 }
