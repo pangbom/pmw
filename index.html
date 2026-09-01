@@ -162,6 +162,11 @@
   .camnote{font-size:12.5px;color:var(--ink-dim);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px}
   .camnote b{color:var(--ink)}
   .camgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .camgroups{display:block}
+  .camplace{margin-bottom:20px}
+  .placehd{font-size:12.5px;font-weight:700;color:var(--ink-dim);margin:0 0 9px;padding-bottom:6px;border-bottom:1px solid var(--line);letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .placehd .cnt{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:500;color:var(--ink-faint);text-transform:none;letter-spacing:0}
+  .collage{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
   .camtile2{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .12s}
   .camtile2:hover{border-color:var(--accent)}
   .camframe{position:relative;aspect-ratio:16/9;background:#0a141d}
@@ -245,7 +250,7 @@
   </div>
   <div class="camsview" id="camsview" style="display:none">
     <div class="camnote" id="camnote"></div>
-    <div class="camgrid2" id="camgrid"></div>
+    <div class="camgroups" id="camgrid"></div>
   </div>
 </div>
 
@@ -494,7 +499,7 @@
 
   function renderCams(){
     var note=document.getElementById("camnote");
-    note.innerHTML='<b>Live webcams — Bovec &amp; Julian Alps.</b> Newest frame from each cam; click one to open its 24-hour timelapse and scrub back through the day. Frames captured every ~3 min. Sources: ARSO (meteo.si) + whatsupcams. A cam shows “no frame yet” while its camera is offline.';
+    note.innerHTML='<b>Live webcams — Bovec &amp; Julian Alps launches.</b> Grouped by place. Click any cam to open its 24-hour timelapse and scrub through the day. Sources: S53MV launch cams, ARSO (meteo.si), DARS, whatsupcams. A cam shows “no frame yet” while its camera is offline.';
     var grid=document.getElementById("camgrid");
     if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Loading cams…</div>';
     fetch(LIVE_BASE+"cams-latest.json?ts="+Date.now(),{cache:"no-store"})
@@ -502,14 +507,23 @@
       .then(function(j){ CAMS_LATEST=j.cams||[]; paintCamGrid(); })
       .catch(function(){ if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Cams are warming up — first frames appear within a few minutes.</div>'; });
   }
+  var PLACE_ORDER=["Bovec airport","Bovec","Kanin","Stol","Kuk","Črna prst","Kobarid","Kredarica","Log pod Mangartom","Approaches"];
+  function camTile(c){
+    var img=c.latest?('<img class="pic" loading="lazy" src="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(c.name)+'" onerror="this.style.display=\'none\'">'):'<div class="ph">no frame yet</div>';
+    return '<div class="camtile" data-cam="'+c.id+'">'+img+
+      '<div class="cap"><div><div class="nm">'+escapeHtml(c.name)+'</div><div class="ar">'+escapeHtml(c.area)+'</div></div>'+
+      (c.t?'<span class="live">'+camAge(c.t)+'</span>':'')+'</div></div>';
+  }
   function paintCamGrid(){
     var grid=document.getElementById("camgrid");
-    if(!CAMS_LATEST.length){ grid.innerHTML='<div class="camnote" style="grid-column:1/-1">No cams yet.</div>'; return; }
-    grid.innerHTML=CAMS_LATEST.map(function(c){
-      var img=c.latest?('<img class="pic" loading="lazy" src="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(c.name)+'" onerror="this.style.display=\'none\'">'):'<div class="ph">no frame yet</div>';
-      return '<div class="camtile" data-cam="'+c.id+'">'+img+
-        '<div class="cap"><div><div class="nm">'+escapeHtml(c.name)+'</div><div class="ar">'+escapeHtml(c.area)+'</div></div>'+
-        (c.t?'<span class="live">'+camAge(c.t)+'</span>':'')+'</div></div>';
+    if(!CAMS_LATEST.length){ grid.innerHTML='<div class="camnote">No cams yet.</div>'; return; }
+    var groups={}, order=[];
+    CAMS_LATEST.forEach(function(c){ var p=c.place||"Other"; if(!groups[p]){groups[p]=[];order.push(p);} groups[p].push(c); });
+    order.sort(function(a,b){ var ia=PLACE_ORDER.indexOf(a), ib=PLACE_ORDER.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
+    grid.innerHTML=order.map(function(p){
+      var live=groups[p].filter(function(c){return c.t;}).length;
+      return '<section class="camplace"><h3 class="placehd">'+escapeHtml(p)+'<span class="cnt">'+live+'/'+groups[p].length+' live</span></h3>'+
+        '<div class="collage">'+groups[p].map(camTile).join("")+'</div></section>';
     }).join("");
   }
   function camAge(t){ var m=Math.round((Date.now()-t)/60000); if(m<=2)return'● LIVE'; return (m<60?m+'m':Math.round(m/60)+'h')+' ago'; }
