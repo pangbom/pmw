@@ -134,6 +134,35 @@ async function collectWU(id) {
   } catch(e) { console.error('WU', id, 'failed:', e.message); return null; }
 }
 
+// ---- WeeWX / Ecowitt valley stations (scraped from their HTML page) ----
+// Slovenian-language weather-station pages that print current wind as "Hitrost vetra: X m/s <dir>".
+// Current-only (no history wired) — shows a flat sparkline like the other current-only stations.
+const WEEWX = [
+  { id:'bovec_valley', name:'Bovec valley', url:'https://freeweb.t-2.net/vreme/bovec/index.html', lat:46.3389, lon:13.5528, elev:432 },
+];
+const SL_DIR = { S:0, SSV:22.5, SV:45, VSV:67.5, V:90, VJV:112.5, JV:135, JJV:157.5, J:180, JJZ:202.5, JZ:225, ZJZ:247.5, Z:270, ZSZ:292.5, SZ:315, SSZ:337.5 };
+async function collectWeeWX(cfg){
+  try {
+    const html = await fetch(cfg.url, { headers: { 'User-Agent':'Mozilla/5.0 PMW' } }).then(r=>r.text());
+    const wm = html.match(/Hitrost vetra:\s*([\d.,]+)\s*m\/s\s*([A-Za-z\-]*)/);
+    if(!wm){ console.error('weewx', cfg.id, 'no wind found'); return null; }
+    const gm = html.match(/Sunki vetra:\s*([\d.,]+)\s*m\/s/);
+    const num = s => parseFloat(String(s).replace(',','.'));
+    const wKmh = +(num(wm[1])*3.6).toFixed(1);
+    const gKmh = gm ? +(num(gm[1])*3.6).toFixed(1) : wKmh;
+    const dirStr = (wm[2]||'').toUpperCase().replace(/[^SVJZ]/g,'');
+    const dir = SL_DIR[dirStr] != null ? SL_DIR[dirStr] : 0;
+    const tm = html.match(/(\d{2})\.\s*(\d{2})\.\s*(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+    let obsTs = null;
+    if(tm){ const off = (+tm[2]>=4 && +tm[2]<=10)?2:1; obsTs = Date.UTC(+tm[3],+tm[2]-1,+tm[1],+tm[4]-off,+tm[5],+tm[6]); }
+    const tmp = html.match(/🌡[^0-9]{0,6}([\d.,]+)\s*°C/);
+    const temp = tmp ? num(tmp[1]) : null;
+    return { id:cfg.id, name:cfg.name, src:'WeeWX', web:cfg.url, lat:cfg.lat, lon:cfg.lon, elev:cfg.elev,
+      real:true, cam:false, camUrl:'', temp, dir, rw:[wKmh,wKmh], rg:[gKmh,gKmh], series:[wKmh,wKmh],
+      gust:gKmh, obsTs, stepMs:600000 };
+  } catch(e){ console.error('weewx', cfg.id, 'failed:', e.message); return null; }
+}
+
 function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 : 2; }
 
 (async () => {
@@ -157,6 +186,7 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
   for (const st of ARSO_LOCS) { const s = await collectArso(st); if(s) stations.push(s); }
   if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
   else { console.log('WU_KEY not set — skipping Wunderground stations'); }
+  for (const cfg of WEEWX) { const s = await collectWeeWX(cfg); if(s) stations.push(s); }
 
   // Expected station ids from the current config — so a station we deliberately removed
   // does not linger via the carry-over below.
@@ -164,6 +194,7 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
   Object.keys(SKY_META).forEach(id=>expected.add('sky_'+id.slice(0,8)));
   ARSO_LOCS.forEach(st=>expected.add('arso_'+st.loc.toLowerCase()));
   WU_STATIONS.forEach(id=>expected.add('wu_'+id.toLowerCase()));
+  WEEWX.forEach(c=>expected.add(c.id));
 
   // Merge: freshly collected stations win; a currently-configured station not collected this
   // run is carried over from the previous snapshot (keeps its old obsTs, so it visibly ages).
