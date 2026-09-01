@@ -211,6 +211,34 @@
   .gusty.sm{font-size:8.5px;padding:0 4px;margin-left:5px}
   .trend{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:16px;margin:0 2px 0 8px;vertical-align:middle;line-height:1}
   .t-up{color:#e6a53d}.t-dn{color:#57c26b}.t-flat{color:#7f95a8}
+  .wt .trend{font-size:22px;margin:0 0 0 4px}
+  .wt .dirmini{display:inline-flex;align-items:center;gap:5px}
+  .setmodal{max-width:520px}
+  .setgrid{display:flex;flex-direction:column;gap:15px}
+  .setrow{display:flex;align-items:center;gap:12px;justify-content:space-between}
+  .setrow>label{font-size:13px;color:var(--ink-dim);min-width:132px}
+  .setrow input[type=range]{flex:1;accent-color:var(--accent);cursor:pointer}
+  .setrow .setval{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-dim);min-width:36px;text-align:right}
+  .setrow select,.setrow .num{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 9px;font-size:13px}
+  .setnote{font-size:11.5px;color:var(--ink-faint);border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+  .camtile{position:relative}
+  .camtile .hovname{position:absolute;left:0;right:0;top:0;bottom:34px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(6,12,18,.15),rgba(6,12,18,.55));opacity:0;transition:opacity .12s;font-size:clamp(17px,2.3vw,28px);font-weight:700;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.7);text-align:center;padding:12px;pointer-events:none}
+  .camtile:hover .hovname{opacity:1}
+  .camtile .tbtns{position:absolute;top:7px;right:7px;display:flex;gap:5px;opacity:0;transition:opacity .12s}
+  .camtile:hover .tbtns{opacity:1}
+  .camtile .tbtn{width:26px;height:26px;border:0;border-radius:6px;background:rgba(6,12,18,.7);color:#dfe8f0;cursor:pointer;font-size:13px;line-height:1}
+  .camtile .tbtn:hover{background:rgba(6,12,18,.92)}
+  .camtile.dragging{opacity:.4}
+  .camtile .live.off{background:#3a2530;color:#f0b8c0}
+  .camtile.dropbefore{box-shadow:-3px 0 0 var(--accent)}
+  .camtile .cap .nm[contenteditable]{outline:1px dashed var(--accent);border-radius:3px;padding:0 3px}
+  .camdivider{grid-column:1/-1;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.06em;color:var(--ink-faint);text-transform:uppercase;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+  .camhidden{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--ink-faint)}
+  .camhidden .chip{background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:3px 10px;cursor:pointer;color:var(--ink-dim)}
+  .camhidden .chip:hover{border-color:var(--accent);color:var(--ink)}
+  .card.dragging{opacity:.4}
+  .card.dragover{border-color:var(--accent)}
+  .card .drag{cursor:grab;color:var(--ink-faint);font-size:13px;padding:0 4px;user-select:none}
   .footer{padding:12px 18px;border-top:1px solid var(--line);color:var(--ink-faint);font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap}
 </style>
 
@@ -224,7 +252,9 @@
     <div class="ctl"><label>Unit</label><div class="seg" id="unitSeg"><button data-u="kn">kt</button><button data-u="ms">m/s</button><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div></div>
     <div class="ctl"><label>Caution &#8805;</label><input class="num" id="caution" type="number" min="0" step="0.5"><span id="cautionUnit">m/s</span></div>
     <div class="ctl"><label>Danger &#8805;</label><input class="num" id="danger" type="number" min="0" step="0.5"><span id="dangerUnit">m/s</span></div>
+    <div class="ctl"><label>Graph</label><div class="seg" id="sparkSeg"><button data-sr="2">2h</button><button data-sr="6">6h</button><button data-sr="12">12h</button><button data-sr="24">24h</button></div></div>
     <button class="act" id="camsBtn">&#9673; Webcams</button>
+    <button class="act" id="settingsBtn">&#9881; Settings</button>
     <button class="act" id="refresh"><span id="refIcon">&#8635;</span> Refresh</button>
   </div>
 </header>
@@ -273,6 +303,8 @@
 
   var state={ unit:"ms", caution:13.6, danger:21.4, active:"all", view:"map", sortKey:"custom", sortDir:1,
     chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark",
+    barbScale:1, indicator:"barb", calmScale:1, sparkRange:12,
+    camNames:{}, camOrder:[], camHidden:{},
     order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[{id:"fav",name:"Favourites",builtin:true,members:[]}] };
   var editingList=null, openPop=null, lastChart=null;
 
@@ -303,7 +335,7 @@
     if(typeof window!=="undefined" && window.storage){ try{ window.storage.set(key,JSON.stringify(val),false).catch(function(){}); }catch(e){} return; }
     try{ window.localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
   }
-  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir}); }
+  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden}); }
 
   function disp(kmh){ return kmh*FROM_KMH[state.unit]; }
   function knots(kmh){ return kmh*0.539957; }
@@ -352,6 +384,16 @@
     renderLists(); render(); }
 
   // ---- card view ----
+  // Card sparkline series = a station's own history within the chosen span (state.sparkRange hrs), downsampled.
+  function sparkSeries(s){
+    if(!s.hi || !s.hi.length) return (s.series&&s.series.length)?s.series:[s.wind||0,s.wind||0];
+    var since=Date.now()-(state.sparkRange||12)*3600000;
+    var w=s.hi.filter(function(p){return p.t>=since;});
+    if(w.length<2) w=s.hi.slice(-2);
+    var vals=w.map(function(p){return p.wind;});
+    if(vals.length>22){ var out=[], step=(vals.length-1)/21, i; for(i=0;i<21;i++)out.push(vals[Math.round(i*step)]); out.push(vals[vals.length-1]); return out; }
+    return vals.length?vals:[s.wind||0,s.wind||0];
+  }
   function compassSvg(dir){ var rot=(dir==null||isNaN(dir))?0:(dir+180);
     return '<div class="compass"><svg viewBox="0 0 38 38"><circle class="ring" cx="19" cy="19" r="16"/><g class="arrow" style="transform:rotate('+rot+'deg)"><path d="M19 5 L24 22 L19 18 L14 22 Z"/></g></svg></div>'; }
   function sparkSvg(series,status,w,h){
@@ -388,15 +430,15 @@
 
   function cardHtml(s){
     var st=statusOf(s.wind), gs=statusOf(s.gust), u=UNIT_LABEL[state.unit], isFav=inList(fav(),s.id);
-    var mn=Math.min.apply(null,s.series), mx=Math.max.apply(null,s.series);
-    return '<div class="card" data-id="'+s.id+'"><div class="head"><div>'+
-      '<div class="nrow"><button class="star '+(isFav?"on":"")+'" data-fav="'+s.id+'">'+(isFav?"\u2605":"\u2606")+'</button>'+
+    var ser=sparkSeries(s), mn=Math.min.apply(null,ser), mx=Math.max.apply(null,ser);
+    return '<div class="card" data-id="'+s.id+'" draggable="true"><div class="head"><div>'+
+      '<div class="nrow"><span class="drag" title="Drag to reorder">\u2630</span><button class="star '+(isFav?"on":"")+'" data-fav="'+s.id+'">'+(isFav?"\u2605":"\u2606")+'</button>'+
       '<span class="name">'+escapeHtml(s.name)+'</span>'+srcTag(s,"src")+badge(s)+gustyChip(s)+'<span class="elev">'+s.elev+'\u2009m</span></div></div>'+
       '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'<button class="mini" data-lists="'+s.id+'">\u2630 Lists</button></div></div>'+
       '<div class="cbody"><div class="cinfo">'+compassSvg(s.dir)+
       '<div><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span>'+trendChip(s)+'<span class="dir-inline">from '+Math.round(s.dir)+'\u00b0 '+compass(s.dir)+'</span></div>'+
       '<div class="ministats">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+' &middot; '+s.temp+'\u00b0 &middot; upd '+updatedStr(s)+'</div></div></div>'+
-      '<div class="cchart">'+sparkSvg(s.series,st,132,40)+'<div class="sparklab">12&#8202;h &middot; min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
+      '<div class="cchart">'+sparkSvg(ser,st,132,40)+'<div class="sparklab">'+(state.sparkRange||12)+'&#8202;h &middot; min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
       (openPop===s.id?popHtml(s):"")+'</div>'; }
   function renderCards(vis){
     var wrap=document.getElementById("cards");
@@ -406,7 +448,7 @@
 
   // ---- table view ----
   var COLS=[{key:"name",label:"Station"},{key:"dir",label:"Dir"},{key:"wind",label:"Wind"},{key:"gust",label:"Gust"},{key:"temp",label:"Temp"},{key:"updated",label:"Updated"}];
-  function dirMini(dir){ var rot=(dir+180); return '<span class="dirmini"><svg width="15" height="15" viewBox="0 0 15 15"><g style="transform:rotate('+rot+'deg);transform-origin:7.5px 7.5px"><path d="M7.5 2 L10 10 L7.5 8.2 L5 10 Z" fill="var(--accent)"/></g></svg>'+compass(dir)+' '+Math.round(dir)+'\u00b0</span>'; }
+  function dirMini(dir){ var rot=(dir+180); return '<span class="dirmini"><svg width="21" height="21" viewBox="0 0 21 21"><g style="transform:rotate('+rot+'deg);transform-origin:10.5px 10.5px"><path d="M10.5 2.5 L14 13.5 L10.5 11 L7 13.5 Z" fill="var(--accent)"/></g></svg>'+compass(dir)+' '+Math.round(dir)+'\u00b0</span>'; }
   function sortVal(s,key){ if(key==="name")return s.name.toLowerCase(); if(key==="dir")return s.dir; if(key==="wind")return s.wind; if(key==="gust")return s.gust; if(key==="temp")return s.temp; if(key==="updated")return ageMinOf(s); return 0; }
   function renderTable(vis){
     var u=UNIT_LABEL[state.unit];
@@ -425,7 +467,7 @@
         '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+(isGusty(s)?' <span class="gusty sm" title="gusty">GUSTY</span>':'')+'</td>'+
         '<td>'+s.temp+'\u00b0</td>'+
         '<td>'+updatedStr(s)+'</td>'+
-        '<td class="spark">'+sparkSvg(s.series,ws,84,22)+'</td>'+
+        '<td class="spark">'+sparkSvg(sparkSeries(s),ws,84,22)+'</td>'+
         '<td><span class="eye '+(shown?"":"off")+'" data-eye="'+s.id+'" title="'+(shown?"shown on map":"hidden from map")+'">'+(shown?"\u25c9":"\u25cb")+'</span></td></tr>'; }).join("");
   }
 
@@ -499,7 +541,7 @@
 
   function renderCams(){
     var note=document.getElementById("camnote");
-    note.innerHTML='<b>Live webcams — Bovec &amp; Julian Alps launches.</b> Grouped by place. Click any cam to open its 24-hour timelapse and scrub through the day. Sources: S53MV launch cams, ARSO (meteo.si), DARS, whatsupcams. A cam shows “no frame yet” while its camera is offline.';
+    note.innerHTML='<b>Live webcams — Bovec &amp; Julian Alps launches.</b> Click a cam for its 24-hour timelapse. Drag tiles to reorder · double-click a name to rename · ✕ hides a cam (restore from the row at the bottom). Offline cams sink to the bottom. Sources: S53MV launch cams, ARSO, DARS, whatsupcams.';
     var grid=document.getElementById("camgrid");
     if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Loading cams…</div>';
     fetch(LIVE_BASE+"cams-latest.json?ts="+Date.now(),{cache:"no-store"})
@@ -507,26 +549,48 @@
       .then(function(j){ CAMS_LATEST=j.cams||[]; paintCamGrid(); })
       .catch(function(){ if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Cams are warming up — first frames appear within a few minutes.</div>'; });
   }
-  var PLACE_ORDER=["Bovec airport","Bovec","Kanin","Stol","Kuk","Črna prst","Kobarid","Kredarica","Log pod Mangartom","Approaches"];
+  function camName(c){ return (state.camNames&&state.camNames[c.id]) || c.name; }
+  function camIsActive(c){ return !!(c.latest && c.t && (Date.now()-c.t) < 90*60000); }
+  function orderedCams(){
+    var byId={}; CAMS_LATEST.forEach(function(c){ byId[c.id]=c; });
+    var ids=(state.camOrder||[]).filter(function(id){ return byId[id]; });
+    CAMS_LATEST.forEach(function(c){ if(ids.indexOf(c.id)<0) ids.push(c.id); });
+    return ids.map(function(id){ return byId[id]; });
+  }
   function camTile(c){
-    var img=c.latest?('<img class="pic" loading="lazy" src="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(c.name)+'" onerror="this.style.display=\'none\'">'):'<div class="ph">no frame yet</div>';
-    return '<div class="camtile" data-cam="'+c.id+'">'+img+
-      '<div class="cap"><div><div class="nm">'+escapeHtml(c.name)+'</div><div class="ar">'+escapeHtml(c.area)+'</div></div>'+
-      (c.t?'<span class="live">'+camAge(c.t)+'</span>':'')+'</div></div>';
+    var nm=camName(c);
+    var img=c.latest?('<img class="pic" loading="lazy" src="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(nm)+'" onerror="this.style.display=\'none\'">'):'<div class="ph">no frame yet</div>';
+    return '<div class="camtile" data-cam="'+c.id+'" draggable="true">'+img+
+      '<div class="hovname">'+escapeHtml(nm)+'</div>'+
+      '<div class="tbtns"><button class="tbtn" data-hide="'+c.id+'" title="Hide cam">✕</button></div>'+
+      '<div class="cap"><div><div class="nm" data-camname="'+c.id+'" title="Double-click to rename">'+escapeHtml(nm)+'</div><div class="ar">'+escapeHtml(c.area||'')+'</div></div>'+
+      (c.t?'<span class="live">'+camAge(c.t)+'</span>':'<span class="live off">offline</span>')+'</div></div>';
   }
   function paintCamGrid(){
     var grid=document.getElementById("camgrid");
     if(!CAMS_LATEST.length){ grid.innerHTML='<div class="camnote">No cams yet.</div>'; return; }
-    var groups={}, order=[];
-    CAMS_LATEST.forEach(function(c){ var p=c.place||"Other"; if(!groups[p]){groups[p]=[];order.push(p);} groups[p].push(c); });
-    order.sort(function(a,b){ var ia=PLACE_ORDER.indexOf(a), ib=PLACE_ORDER.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
-    grid.innerHTML=order.map(function(p){
-      var live=groups[p].filter(function(c){return c.t;}).length;
-      return '<section class="camplace"><h3 class="placehd">'+escapeHtml(p)+'<span class="cnt">'+live+'/'+groups[p].length+' live</span></h3>'+
-        '<div class="collage">'+groups[p].map(camTile).join("")+'</div></section>';
-    }).join("");
+    var ord=orderedCams();
+    var visible=ord.filter(function(c){ return !(state.camHidden&&state.camHidden[c.id]); });
+    var hidden=ord.filter(function(c){ return state.camHidden&&state.camHidden[c.id]; });
+    var active=visible.filter(camIsActive), inactive=visible.filter(function(c){ return !camIsActive(c); });
+    var html='<div class="collage">'+active.map(camTile).join("");
+    if(inactive.length) html+='<div class="camdivider">Inactive / offline</div>'+inactive.map(camTile).join("");
+    if(hidden.length) html+='<div class="camhidden">Hidden: '+hidden.map(function(c){ return '<span class="chip" data-unhide="'+c.id+'">'+escapeHtml(camName(c))+' ↩</span>'; }).join("")+'</div>';
+    grid.innerHTML=html+'</div>';
   }
   function camAge(t){ var m=Math.round((Date.now()-t)/60000); if(m<=2)return'● LIVE'; return (m<60?m+'m':Math.round(m/60)+'h')+' ago'; }
+  function startCamRename(id){
+    var el=document.querySelector('.nm[data-camname="'+id+'"]'); if(!el)return;
+    el.setAttribute("contenteditable","true"); el.focus();
+    var range=document.createRange(); range.selectNodeContents(el); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    function finish(save){ el.removeAttribute("contenteditable");
+      if(save){ var v=el.textContent.trim(); var c=CAMS_LATEST.filter(function(x){return x.id===id;})[0];
+        if(v && c && v!==c.name){ state.camNames[id]=v; } else { delete state.camNames[id]; }
+        persist(); }
+      paintCamGrid(); }
+    el.addEventListener("blur",function(){ finish(true); }, {once:true});
+    el.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); el.blur(); } else if(e.key==="Escape"){ el.textContent=camName(CAMS_LATEST.filter(function(x){return x.id===id;})[0]); el.blur(); } });
+  }
 
   function openCam(id){
     var c=CAMS_LATEST.filter(function(x){return x.id===id;})[0]; if(!c)return;
@@ -582,21 +646,28 @@
   // ---- wind-barb markers (style: "Open pennants" — long thin staff, hollow 50-kt pennants) ----
   // Barb colours flip with the basemap so they stay legible: light ink on dark maps, dark ink on light/terrain maps.
   function barbColors(){ var lightBase=(state.basemap==="light"||state.basemap==="terrain"); return lightBase?{fg:"#0b1119",halo:"#ffffff"}:{fg:"#ffffff",halo:"#0b1119"}; }
+  function drawPrims(prim,color,w){ return prim.map(function(p){ if(p.t==="line") return '<line x1="'+p.x1.toFixed(1)+'" y1="'+p.y1.toFixed(1)+'" x2="'+p.x2.toFixed(1)+'" y2="'+p.y2.toFixed(1)+'" stroke="'+color+'" stroke-width="'+w.toFixed(2)+'" stroke-linecap="round"/>'; return '<polygon points="'+p.pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join(" ")+'" fill="none" stroke="'+color+'" stroke-width="'+w.toFixed(2)+'" stroke-linejoin="round"/>'; }).join(""); }
   function barbGroup(kt,fg,halo){
-    var L=26, bl=8, sp=3.6; var spd=Math.round(kt/5)*5; if(spd<2.5) return "";
+    var sc=state.barbScale||1, L=26*sc, bl=8*sc, sp=3.6*sc; var spd=Math.round(kt/5)*5; if(spd<2.5) return "";
     var pen=Math.floor(spd/50), rem=spd-pen*50, full=Math.floor(rem/10), half=Math.floor((rem-full*10)/5);
     var prim=[]; prim.push({t:"line",x1:0,y1:0,x2:0,y2:-L}); var pos=L, i;
     for(i=0;i<pen;i++){ prim.push({t:"poly",pts:[[0,-pos],[0,-(pos-sp*1.7)],[-bl,-(pos-sp*0.85)]]}); pos-=sp*1.95; }
     for(i=0;i<full;i++){ prim.push({t:"line",x1:0,y1:-pos,x2:-bl,y2:-(pos-bl*0.5)}); pos-=sp; }
     for(i=0;i<half;i++){ if(pen===0&&full===0){ pos-=sp; } prim.push({t:"line",x1:0,y1:-pos,x2:-bl*0.5,y2:-(pos-bl*0.25)}); pos-=sp; }
-    function draw(color,w){ return prim.map(function(p){ if(p.t==="line") return '<line x1="'+p.x1+'" y1="'+p.y1.toFixed(1)+'" x2="'+p.x2.toFixed(1)+'" y2="'+p.y2.toFixed(1)+'" stroke="'+color+'" stroke-width="'+w+'" stroke-linecap="round"/>'; return '<polygon points="'+p.pts.map(function(q){return q[0]+","+q[1].toFixed(1);}).join(" ")+'" fill="none" stroke="'+color+'" stroke-width="'+w+'" stroke-linejoin="round"/>'; }).join(""); }
-    return draw(halo,3.0)+draw(fg,1.1);
+    return drawPrims(prim,halo,3.0*sc)+drawPrims(prim,fg,1.1*sc);
+  }
+  function arrowGroup(kt,fg,halo){
+    var sc=state.barbScale||1; if(kt<2.5) return "";
+    var len=(15+Math.min(kt,45)*0.85)*sc, hw=4.6*sc, hb=len-hw*1.8;
+    var prim=[{t:"line",x1:0,y1:0,x2:0,y2:-len},{t:"line",x1:0,y1:-len,x2:-hw,y2:-hb},{t:"line",x1:0,y1:-len,x2:hw,y2:-hb}];
+    return drawPrims(prim,halo,3.2*sc)+drawPrims(prim,fg,1.3*sc);
   }
   function windMarkerHtml(s){
-    var kt=knots(s.wind), calm=kt<2.5, col=barbColors(), barb=calm?"":barbGroup(kt,col.fg,col.halo);
-    var r=calm?5.2:2.6;
-    var ring='<circle cx="0" cy="0" r="'+r+'" fill="'+col.halo+'" stroke="'+col.halo+'" stroke-width="2.8"/><circle cx="0" cy="0" r="'+r+'" fill="none" stroke="'+col.fg+'" stroke-width="'+(calm?1.6:1.2)+'"/>';
-    var svg='<svg width="60" height="62" viewBox="0 0 60 62"><g transform="translate(30,34)"><g transform="rotate('+s.dir+')">'+barb+'</g>'+ring+'</g></svg>';
+    var kt=knots(s.wind), calm=kt<2.5, col=barbColors();
+    var ind=(state.indicator==="arrow")?arrowGroup(kt,col.fg,col.halo):barbGroup(kt,col.fg,col.halo);
+    var r=(calm?5.2*(state.calmScale||1):2.6*(state.barbScale||1));
+    var ring='<circle cx="0" cy="0" r="'+r.toFixed(1)+'" fill="'+col.halo+'" stroke="'+col.halo+'" stroke-width="2.8"/><circle cx="0" cy="0" r="'+r.toFixed(1)+'" fill="none" stroke="'+col.fg+'" stroke-width="'+(calm?1.6:1.2)+'"/>';
+    var svg='<svg width="60" height="62" viewBox="0 0 60 62" style="overflow:visible"><g transform="translate(30,34)"><g transform="rotate('+s.dir+')">'+(calm?"":ind)+'</g>'+ring+'</g></svg>';
     return '<div class="wm">'+svg+'</div>';
   }
   function windIcon(s){ return L.divIcon({className:"",iconSize:[60,62],iconAnchor:[30,34],popupAnchor:[0,-30],html:windMarkerHtml(s)}); }
@@ -662,6 +733,42 @@
   function addListWith(name,sid){ name=(name||"").trim(); if(!name)return; var id="l"+Math.random().toString(36).slice(2,7); state.lists.push({id:id,name:name,builtin:false,members:sid?[sid]:[]}); persist(); renderLists(); render(); }
   function reorder(id,newPos){ var arr=state.order.slice(); var cur=arr.indexOf(id); if(cur>=0)arr.splice(cur,1); newPos=Math.max(1,Math.min(arr.length+1,newPos)); arr.splice(newPos-1,0,id); state.order=arr; state.sortKey="custom"; persist(); render(); }
 
+  function reorderCam(dragId, targetId){
+    var ids=orderedCams().map(function(c){ return c.id; });
+    var from=ids.indexOf(dragId); if(from<0)return; ids.splice(from,1);
+    var to=ids.indexOf(targetId); if(to<0)to=ids.length; ids.splice(to,0,dragId);
+    state.camOrder=ids; persist(); paintCamGrid();
+  }
+  function reorderStation(dragId, targetId){
+    var arr=state.order.slice();
+    STATIONS.forEach(function(s){ if(arr.indexOf(s.id)<0) arr.push(s.id); });
+    var from=arr.indexOf(dragId); if(from<0)return; arr.splice(from,1);
+    var to=arr.indexOf(targetId); if(to<0)to=arr.length; arr.splice(to,0,dragId);
+    state.order=arr; state.sortKey="custom"; persist(); render();
+  }
+  function openSettings(){
+    var m=document.getElementById("modal"); m.className="modal setmodal";
+    var u=UNIT_LABEL[state.unit];
+    m.innerHTML='<div class="mhead"><h3>Settings</h3><button class="close" data-close="1">✕</button></div>'+
+      '<div class="setgrid">'+
+        '<div class="setrow"><label>Wind indicator</label><div class="seg" id="indSeg"><button data-ind="barb" class="'+(state.indicator!=="arrow"?"on":"")+'">Barbs</button><button data-ind="arrow" class="'+(state.indicator==="arrow"?"on":"")+'">Arrows</button></div></div>'+
+        '<div class="setrow"><label>Indicator size</label><input type="range" id="setBarb" min="0.6" max="1.8" step="0.1" value="'+(state.barbScale||1)+'"><span class="setval" id="setBarbV">'+(state.barbScale||1).toFixed(1)+'×</span></div>'+
+        '<div class="setrow"><label>Calm-circle size</label><input type="range" id="setCalm" min="0.6" max="2" step="0.1" value="'+(state.calmScale||1)+'"><span class="setval" id="setCalmV">'+(state.calmScale||1).toFixed(1)+'×</span></div>'+
+        '<div class="setrow"><label>Caution ≥ ('+u+')</label><input class="num" id="setCaution" type="number" min="0" step="0.5" value="'+threshFmt(state.caution)+'"></div>'+
+        '<div class="setrow"><label>Danger ≥ ('+u+')</label><input class="num" id="setDanger" type="number" min="0" step="0.5" value="'+threshFmt(state.danger)+'"></div>'+
+        '<div class="setrow"><label>Default map</label><select id="setBasemap"><option value="dark">Dark</option><option value="light">Streets</option><option value="terrain">Terrain</option><option value="satellite">Satellite</option></select></div>'+
+        '<div class="setnote">Barbs show speed (½=5, |=10, ▲=50 kt); arrows show direction with length scaled to speed. Settings save on this device.</div>'+
+      '</div>';
+    document.getElementById("setBasemap").value=state.basemap;
+    document.getElementById("overlay").classList.add("open");
+    var remap=function(){ if(state.view==="map")renderMarkers(visibleStations()); };
+    document.getElementById("indSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.indicator=b.getAttribute("data-ind"); setSeg("indSeg","data-ind",state.indicator); persist(); remap(); });
+    var sb=document.getElementById("setBarb"); sb.addEventListener("input",function(){ state.barbScale=+sb.value; document.getElementById("setBarbV").textContent=(+sb.value).toFixed(1)+"×"; persist(); remap(); });
+    var scv=document.getElementById("setCalm"); scv.addEventListener("input",function(){ state.calmScale=+scv.value; document.getElementById("setCalmV").textContent=(+scv.value).toFixed(1)+"×"; persist(); remap(); });
+    var sc2=document.getElementById("setCaution"); sc2.addEventListener("change",function(){ state.caution=dispToKnots(+sc2.value||0); persist(); refreshThreshUI(); render(); });
+    var sd=document.getElementById("setDanger"); sd.addEventListener("change",function(){ state.danger=dispToKnots(+sd.value||0); persist(); refreshThreshUI(); render(); });
+    document.getElementById("setBasemap").addEventListener("change",function(e){ setBasemap(e.target.value,true); });
+  }
   function wire(){
     document.getElementById("viewSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.view=b.getAttribute("data-v"); setSeg("viewSeg","data-v",state.view); applyView(); render(); });
     document.getElementById("unitSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.unit=b.getAttribute("data-u"); setSeg("unitSeg","data-u",state.unit); persist(); refreshThreshUI(); render(); });
@@ -674,8 +781,29 @@
     dEl.addEventListener("change",function(){ state.danger=dispToKnots(+dEl.value||0); persist(); refreshThreshUI(); render(); });
     document.getElementById("refresh").addEventListener("click",function(){ var ic=document.getElementById("refIcon"); if(ic)ic.textContent="…"; loadData().then(function(){ if(ic)ic.textContent="↻"; }); });
     document.getElementById("camsBtn").addEventListener("click",function(){ state.view="cams"; setSeg("viewSeg","data-v","cams"); applyView(); render(); });
+    document.getElementById("settingsBtn").addEventListener("click",openSettings);
+    document.getElementById("sparkSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.sparkRange=+b.getAttribute("data-sr"); setSeg("sparkSeg","data-sr",state.sparkRange); persist(); if(state.view==="map"||state.view==="list")render(); });
     document.getElementById("overlay").addEventListener("click",function(e){ if(e.target.id==="overlay"||e.target.getAttribute("data-close"))closeCams(); });
-    document.getElementById("camgrid").addEventListener("click",function(e){ var t=e.target.closest("[data-cam]"); if(t)openCam(t.getAttribute("data-cam")); });
+    // Cams: hide / unhide / rename / open / drag-reorder
+    var cg=document.getElementById("camgrid");
+    cg.addEventListener("click",function(e){
+      var h=e.target.closest("[data-hide]"); if(h){ e.stopPropagation(); state.camHidden[h.getAttribute("data-hide")]=true; persist(); paintCamGrid(); return; }
+      var u=e.target.closest("[data-unhide]"); if(u){ delete state.camHidden[u.getAttribute("data-unhide")]; persist(); paintCamGrid(); return; }
+      if(e.target.closest("[data-camname]")) return; // name: dblclick renames, single click does nothing
+      var t=e.target.closest("[data-cam]"); if(t)openCam(t.getAttribute("data-cam"));
+    });
+    cg.addEventListener("dblclick",function(e){ var n=e.target.closest("[data-camname]"); if(n){ e.preventDefault(); startCamRename(n.getAttribute("data-camname")); } });
+    var camDragId=null;
+    cg.addEventListener("dragstart",function(e){ var t=e.target.closest(".camtile"); if(!t){e.preventDefault();return;} camDragId=t.getAttribute("data-cam"); t.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",camDragId);}catch(_){} });
+    cg.addEventListener("dragover",function(e){ e.preventDefault(); });
+    cg.addEventListener("drop",function(e){ e.preventDefault(); var t=e.target.closest(".camtile"); if(!camDragId||!t)return; var tgt=t.getAttribute("data-cam"); if(tgt===camDragId)return; reorderCam(camDragId,tgt); });
+    cg.addEventListener("dragend",function(){ camDragId=null; var d=cg.querySelector(".dragging"); if(d)d.classList.remove("dragging"); });
+    // Map cards: drag to reorder stations
+    var cards=document.getElementById("cards"); var cardDragId=null;
+    cards.addEventListener("dragstart",function(e){ var t=e.target.closest(".card"); if(!t){e.preventDefault();return;} cardDragId=t.getAttribute("data-id"); t.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",cardDragId);}catch(_){} });
+    cards.addEventListener("dragover",function(e){ e.preventDefault(); var t=e.target.closest(".card"); [].forEach.call(cards.querySelectorAll(".dragover"),function(x){x.classList.remove("dragover");}); if(t&&t.getAttribute("data-id")!==cardDragId)t.classList.add("dragover"); });
+    cards.addEventListener("drop",function(e){ e.preventDefault(); var t=e.target.closest(".card"); if(cardDragId&&t){ var tgt=t.getAttribute("data-id"); if(tgt!==cardDragId)reorderStation(cardDragId,tgt); } });
+    cards.addEventListener("dragend",function(){ cardDragId=null; [].forEach.call(cards.querySelectorAll(".dragging,.dragover"),function(x){x.classList.remove("dragging","dragover");}); });
 
     document.getElementById("lists").addEventListener("click",function(e){
       var t=e.target.closest("[data-list]"); if(t){ state.active=t.getAttribute("data-list"); persist(); renderLists(); render(); return; }
@@ -766,8 +894,9 @@
   function boot(){
     Promise.all([loadStore("pmw_lists"),loadStore("pmw_settings")]).then(function(v){
       if(v[0]&&v[0].length){ state.lists=v[0]; if(!listById("fav"))state.lists.unshift({id:"fav",name:"Favourites",builtin:true,members:[]}); }
-      if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir; }
-      setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric);
+      if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir;
+        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; }
+      setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
       refreshThreshUI();
       initMap(); wire(); applyView(); renderLists(); render();
       loadData(); setInterval(loadData, 5*60000);
