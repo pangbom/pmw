@@ -1,41 +1,55 @@
 {
- "generated": "2026-09-01T16:28:27.060Z",
+ "generated": "2026-09-01T16:44:02.886Z",
+ "nowISO": "2026-09-01T16:44:02.886Z",
  "results": [
   {
+   "loc": "StolN",
+   "folder": null,
+   "sample": null,
+   "newestISO": null,
+   "ageMin": null
+  },
+  {
+   "loc": "Kuk",
+   "folder": null,
+   "sample": null,
+   "newestISO": null,
+   "ageMin": null
+  },
+  {
+   "loc": "Kobarid",
+   "folder": null,
+   "sample": null,
+   "newestISO": null,
+   "ageMin": null
+  },
+  {
+   "loc": "Crnaprst",
+   "folder": null,
+   "sample": null,
+   "newestISO": null,
+   "ageMin": null
+  },
+  {
    "loc": "Stol",
-   "listStatus": 200,
-   "frameCount": 370,
-   "oldest": "20260829220958",
-   "newest": "20260901160958",
-   "newestFrame": {
-    "status": 200,
-    "bytes": 344036,
-    "jpeg": true
-   }
+   "folder": null,
+   "sample": null,
+   "newestISO": null,
+   "ageMin": null
   },
   {
    "loc": "Kanin",
-   "listStatus": 200,
-   "frameCount": 354,
-   "oldest": "20260829235718",
-   "newest": "20260901180718",
-   "newestFrame": {
-    "status": 200,
-    "bytes": 323840,
-    "jpeg": true
-   }
+   "folder": null,
+   "sample": null,
+   "newestISO": null,
+   "ageMin": null
   },
   {
    "loc": "Bovec",
-   "listStatus": 200,
-   "frameCount": 340,
-   "oldest": "20260829230031",
-   "newest": "20260901172032",
-   "newestFrame": {
-    "status": 200,
-    "bytes": 253848,
-    "jpeg": true
-   }
+   "folder": null,
+   "sample": null,
+   "newestISO": null,
+   "ageMin": null
   }
  ]
 }
