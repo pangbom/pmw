@@ -1,0 +1,19 @@
+name: Probe (one-shot)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: |
+          git config user.name "pmw-bot"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node probe.js
+          git add probe-out.json
+          if ! git diff --staged --quiet; then git commit -m "probe $(date -u +%FT%TZ)"; for i in 1 2 3; do git push && break; git pull --rebase --autostash origin main || true; sleep 2; done; fi
