@@ -1,36 +1,33 @@
-// Reachability probe from the GitHub runner. Tests relaying the DARS road cams (which block
-// the runner directly) through the free wsrv.nl image proxy, plus candidate dropzone cams.
-const fs = require('fs');
+// Probe s53mv.s5tech.net reachability from the runner + its directory-listing archive.
 const enc = encodeURIComponent;
-const DARS_PREDEL = 'https://kamere.dars.si/kamere/drsi_vgrc/Predel_Pre1_0001.jpg';
-const DARS_UCJA   = 'https://kamere.dars.si/kamere/drsi_vgrc/Ucja_Ucj1_0001.jpg';
+const LOCS = ['Stol','Kanin','Bovec'];
+const H = { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36' };
+const fs = require('fs');
 
-const URLS = [
-  ['dars_predel_direct', DARS_PREDEL],
-  ['dars_predel_wsrv',   'https://wsrv.nl/?url=' + enc(DARS_PREDEL) + '&output=jpg'],
-  ['dars_ucja_wsrv',     'https://wsrv.nl/?url=' + enc(DARS_UCJA) + '&output=jpg'],
-  ['dars_predel_weserv', 'https://images.weserv.nl/?url=' + enc(DARS_PREDEL) + '&output=jpg'],
-  ['arso_bovec_nw',      'https://meteo.arso.gov.si/uploads/probase/www/observ/webcam/BOVEC_dir/siwc_BOVEC_nw_pda.jpg'],
-];
-const H = { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36', 'Accept': 'image/*,*/*' };
-
-async function one(url){
+async function get(url, asBuf){
   const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 20000);
   try {
     const r = await fetch(url, { signal: ctrl.signal, headers: H });
-    const buf = Buffer.from(await r.arrayBuffer());
-    return { status: r.status, bytes: buf.length, jpeg: buf.length>1024 && buf[0]===0xFF && buf[1]===0xD8, ct: r.headers.get('content-type') };
-  } finally { clearTimeout(t); }
+    if(asBuf){ const b = Buffer.from(await r.arrayBuffer()); return { status:r.status, bytes:b.length, jpeg:b.length>1024&&b[0]===0xFF&&b[1]===0xD8 }; }
+    const txt = await r.text(); return { status:r.status, len:txt.length, txt };
+  } catch(e){ return { error: (e.cause&&(e.cause.code||e.cause.message))||e.message }; } finally { clearTimeout(t); }
 }
 
 (async () => {
   const out = [];
-  for(const [id,url] of URLS){
-    let rec;
-    try { rec = await one(url); }
-    catch(e){ rec = { error: (e.cause && (e.cause.code||e.cause.message)) || e.message }; }
-    out.push({ id, ...rec });
-    console.log(id, JSON.stringify(rec));
+  for(const loc of LOCS){
+    const listUrl = 'http://s53mv.s5tech.net/ipcam/'+loc+'/';
+    const L = await get(listUrl, false);
+    if(L.error || !L.txt){ out.push({ loc, list: L }); continue; }
+    const frames = [...new Set((L.txt.match(/[0-9.]+_01_\d{17}_TIMING\.jpg/g))||[])].sort();
+    const newest = frames[frames.length-1];
+    let frame = null;
+    if(newest) frame = await get('http://s53mv.s5tech.net/ipcam/'+loc+'/'+newest, true);
+    // parse span
+    const ts = f => { const m=f.match(/_(\d{14})\d{3}_/); return m?m[1]:null; };
+    out.push({ loc, listStatus:L.status, frameCount:frames.length, oldest:ts(frames[0]||''), newest:ts(newest||''), newestFrame:frame });
   }
+  // also test relaying the listing HTML via wsrv (in case direct is blocked) — wsrv is image-only, expect fail/HTML-as-image
   fs.writeFileSync('probe-out.json', JSON.stringify({ generated:new Date().toISOString(), results: out }, null, 1));
+  console.log(JSON.stringify(out,null,1));
 })();
