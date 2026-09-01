@@ -202,6 +202,10 @@
   .cam .cap{padding:8px 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
   .cam .cap a{font-size:11.5px;text-decoration:none}
 
+  .gusty{display:inline-block;background:#5a3a05;color:#ffcf87;border:1px solid #9a6a15;font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:700;letter-spacing:.04em;border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .gusty.sm{font-size:8.5px;padding:0 4px;margin-left:5px}
+  .trend{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:16px;margin:0 2px 0 8px;vertical-align:middle;line-height:1}
+  .t-up{color:#e6a53d}.t-dn{color:#57c26b}.t-flat{color:#7f95a8}
   .footer{padding:12px 18px;border-top:1px solid var(--line);color:var(--ink-faint);font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap}
 </style>
 
@@ -356,15 +360,36 @@
   function popHtml(s){
     var rows=state.lists.map(function(l){ var checked=inList(l,s.id)?"checked":""; var icon=l.builtin?"\u2605 ":""; return '<label class="opt"><input type="checkbox" data-toggle="'+l.id+'" '+checked+'>'+icon+escapeHtml(l.name)+'</label>'; }).join("");
     return '<div class="pop" data-pop="'+s.id+'"><h4>Add to lists</h4>'+rows+'<div class="div"></div><div class="newrow"><input placeholder="New list\u2026" data-popnew="'+s.id+'"><button data-popadd="'+s.id+'">Add</button></div></div>'; }
+  // ---- gustiness + trend cues ----
+  // Gusty when the gust runs well above the mean (default: gust-minus-mean ≥ 4 m/s). The
+  // absolute spread matters more for flying than the ratio, so a light wind with a big spike
+  // still flags. Threshold in m/s; tune GUST_SPREAD_MS.
+  var GUST_SPREAD_MS = 4;
+  function gustSpreadMs(s){ return (s.gust==null||s.wind==null)?0:(s.gust - s.wind)/3.6; }
+  function isGusty(s){ return gustSpreadMs(s) >= GUST_SPREAD_MS; }
+  function gustyChip(s){ if(!isGusty(s)) return ''; return '<span class="gusty" title="Gust '+fmt(s.gust)+' vs mean '+fmt(s.wind)+' '+UNIT_LABEL[state.unit]+' — rough/gusty">GUSTY +'+fmt(s.gust-s.wind)+'</span>'; }
+  // Trend over the last ~hour of a station's own history: rising / falling / steady (±1 m/s/hr).
+  function windTrend(s){
+    if(!s.hi || s.hi.length<2) return 0;
+    var now=s.hi[s.hi.length-1].t, since=now-60*60000;
+    var w=s.hi.filter(function(p){return p.t>=since;}); if(w.length<2) w=s.hi.slice(-4);
+    if(w.length<2) return 0;
+    var h=Math.floor(w.length/2), e=0,ei=0,l=0,li=0;
+    w.forEach(function(p,i){ if(i<h){e+=p.wind;ei++;} else {l+=p.wind;li++;} });
+    if(!ei||!li) return 0;
+    var d=((l/li)-(e/ei))/3.6; return d>=1?1 : d<=-1?-1 : 0;
+  }
+  function trendChip(s){ var t=windTrend(s); if(t>0) return '<span class="trend t-up" title="wind building over the last hour">↑</span>'; if(t<0) return '<span class="trend t-dn" title="wind easing over the last hour">↓</span>'; return '<span class="trend t-flat" title="wind steady over the last hour">→</span>'; }
+
   function cardHtml(s){
     var st=statusOf(s.wind), gs=statusOf(s.gust), u=UNIT_LABEL[state.unit], isFav=inList(fav(),s.id);
     var mn=Math.min.apply(null,s.series), mx=Math.max.apply(null,s.series);
     return '<div class="card" data-id="'+s.id+'"><div class="head"><div>'+
       '<div class="nrow"><button class="star '+(isFav?"on":"")+'" data-fav="'+s.id+'">'+(isFav?"\u2605":"\u2606")+'</button>'+
-      '<span class="name">'+escapeHtml(s.name)+'</span>'+srcTag(s,"src")+badge(s)+'<span class="elev">'+s.elev+'\u2009m</span></div></div>'+
+      '<span class="name">'+escapeHtml(s.name)+'</span>'+srcTag(s,"src")+badge(s)+gustyChip(s)+'<span class="elev">'+s.elev+'\u2009m</span></div></div>'+
       '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'<button class="mini" data-lists="'+s.id+'">\u2630 Lists</button></div></div>'+
       '<div class="cbody"><div class="cinfo">'+compassSvg(s.dir)+
-      '<div><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span><span class="dir-inline">from '+Math.round(s.dir)+'\u00b0 '+compass(s.dir)+'</span></div>'+
+      '<div><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span>'+trendChip(s)+'<span class="dir-inline">from '+Math.round(s.dir)+'\u00b0 '+compass(s.dir)+'</span></div>'+
       '<div class="ministats">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+' &middot; '+s.temp+'\u00b0 &middot; upd '+updatedStr(s)+'</div></div></div>'+
       '<div class="cchart">'+sparkSvg(s.series,st,132,40)+'<div class="sparklab">12&#8202;h &middot; min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
       (openPop===s.id?popHtml(s):"")+'</div>'; }
@@ -391,8 +416,8 @@
         '<td class="starcell '+(isFav?"on":"")+'" data-fav="'+s.id+'">'+(isFav?"\u2605":"\u2606")+'</td>'+
         '<td class="name">'+escapeHtml(s.name)+badge(s)+srcTag(s,"srcmini")+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
         '<td>'+dirMini(s.dir)+'</td>'+
-        '<td class="w-'+ws+'">'+fmt(s.wind)+' '+u+'</td>'+
-        '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+'</td>'+
+        '<td class="w-'+ws+'">'+fmt(s.wind)+' '+u+' '+trendChip(s)+'</td>'+
+        '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+(isGusty(s)?' <span class="gusty sm" title="gusty">GUSTY</span>':'')+'</td>'+
         '<td>'+s.temp+'\u00b0</td>'+
         '<td>'+updatedStr(s)+'</td>'+
         '<td class="spark">'+sparkSvg(s.series,ws,84,22)+'</td>'+
