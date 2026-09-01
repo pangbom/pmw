@@ -1,21 +1,28 @@
-// Find the real image folder for each s53mv loc (4h.php reveals it), + tz sanity for Stol.
+// Probe the Bovec valley WeeWX station: runner reachability + raw-HTML wind parse.
 const fs=require('fs');
-const LOCS=['StolN','Kuk','Kobarid','Crnaprst','Stol','Kanin','Bovec'];
-const H={'User-Agent':'Mozilla/5.0 PMW'};
-async function txt(url){ const c=new AbortController(); const t=setTimeout(()=>c.abort(),15000);
-  try{ const r=await fetch(url,{signal:c.signal,headers:H}); return await r.text(); }catch(e){ return 'ERR:'+e.message; } finally{ clearTimeout(t); } }
-function s53Epoch(fn){ const m=fn.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{3})_/); if(!m)return null;
-  const Y=+m[1],Mo=+m[2],D=+m[3],H2=+m[4],Mi=+m[5],S=+m[6],ms=+m[7]; const off=(Mo>=4&&Mo<=10)?2:1;
-  return Date.UTC(Y,Mo-1,D,H2,Mi,S,ms)-off*3600*1000; }
+const URL='https://freeweb.t-2.net/vreme/bovec/index.html';
 (async()=>{
-  const out=[];
-  for(const loc of LOCS){
-    const html=await txt('http://s53mv.s5tech.net/ipcam/4h.php?loc='+loc);
-    const m=html.match(/ipcam\/([^\/"']+)\/([0-9.]+_01_\d{17}_TIMING\.jpg)/);
-    const folder=m?m[1]:null, sample=m?m[2]:null;
-    const ep=sample?s53Epoch(sample):null;
-    out.push({loc, folder, sample, newestISO: ep?new Date(ep).toISOString():null, ageMin: ep?Math.round((Date.now()-ep)/60000):null});
-  }
-  fs.writeFileSync('probe-out.json', JSON.stringify({generated:new Date().toISOString(), nowISO:new Date().toISOString(), results:out},null,1));
+  const out={url:URL};
+  try{
+    const c=new AbortController(); const t=setTimeout(()=>c.abort(),20000);
+    const r=await fetch(URL,{signal:c.signal,headers:{'User-Agent':'Mozilla/5.0 PMW'}});
+    clearTimeout(t);
+    const html=await r.text();
+    out.status=r.status; out.len=html.length;
+    const windM = html.match(/Hitrost vetra:\s*([\d.,]+)\s*m\/s\s*([A-Za-zČŠŽčšž\-]*)/);
+    const gustM = html.match(/Sunki vetra:\s*([\d.,]+)\s*m\/s/);
+    const tempM = html.match(/([\d.,]+)\s*°C/);
+    const timeM = html.match(/(\d{2})\.\s*(\d{2})\.\s*(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+    // km/h variant fallback
+    const windKmh = html.match(/Hitrost vetra:\s*([\d.,]+)\s*km\/h\s*([A-Za-zČŠŽčšž\-]*)/);
+    out.wind_ms = windM ? {v:windM[1],dir:windM[2]} : null;
+    out.gust_ms = gustM ? gustM[1] : null;
+    out.wind_kmh = windKmh ? {v:windKmh[1],dir:windKmh[2]} : null;
+    out.temp = tempM ? tempM[1] : null;
+    out.time = timeM ? timeM[0] : null;
+    // also capture any "m/s" contexts to see direction format when windy
+    out.msSamples = (html.match(/[\d.,]+\s*m\/s[^<]{0,12}/g)||[]).slice(0,6);
+  }catch(e){ out.error=(e.cause&&(e.cause.code||e.cause.message))||e.message; }
+  fs.writeFileSync('probe-out.json', JSON.stringify(out,null,1));
   console.log(JSON.stringify(out,null,1));
 })();
