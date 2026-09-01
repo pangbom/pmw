@@ -87,21 +87,27 @@ async function pool(items, n, fn){
 const S53_BASE = 'http://s53mv.s5tech.net/ipcam/';
 const S53_BACKFILL_CAP = 14;   // newest-missing frames to fetch per cam per pass
 const S53_W = 1024, S53_Q = 72; // downscale width / quality via wsrv
-// Filenames vary per cam: "<ip>_01_YYYYMMDDHHMMSSmmm_TIMING.jpg" or "<name>_00_YYYYMMDDHHMMSS.jpg".
-const S53_FILE_RE = /[\w.\-]+_\d{2}_\d{14}(?:\d{3})?(?:_TIMING)?\.jpg/g;
-function s53Epoch(fname){
-  const m = fname.match(/_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{3})?(?:_TIMING)?\.jpg$/);
-  if(!m) return null;
-  const Y=+m[1],Mo=+m[2],D=+m[3],H=+m[4],Mi=+m[5],S=+m[6],ms=+(m[7]||0);
-  const offH = (Mo>=4 && Mo<=10) ? 2 : 1; // CEST / CET (DST edge days ignored)
-  return Date.UTC(Y,Mo-1,D,H,Mi,S,ms) - offH*3600*1000;
+// Cam filename clocks are inconsistent across s53mv cams, so we take each frame's time from the
+// server's directory-listing modified-date (IIS autoindex: "M/D/YYYY h:mm AM/PM  size  file"),
+// which is uniform server-local (Europe/Ljubljana). Returns [{fn, ep}] newest-last.
+const S53_ROW_RE = /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*(AM|PM)\b[\s\S]{0,60}?([\w.\-]+_\d{2}_\d{14}(?:\d{3})?(?:_TIMING)?\.jpg)/gi;
+function modEpoch(M,D,Y,h,m,ampm){
+  let H = h % 12; if(/pm/i.test(ampm)) H += 12;
+  const offH = (M>=4 && M<=10) ? 2 : 1; // CEST / CET (DST edge days ignored)
+  return Date.UTC(Y, M-1, D, H, m, 0) - offH*3600*1000;
 }
 async function s53List(loc){
   const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 20000);
   try {
     const r = await fetch(S53_BASE+loc+'/', { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
     const txt = await r.text();
-    return [...new Set((txt.match(S53_FILE_RE))||[])];
+    const seen = new Set(); const rows = [];
+    let m; S53_ROW_RE.lastIndex = 0;
+    while((m = S53_ROW_RE.exec(txt))){
+      const fn = m[7]; if(seen.has(fn)) continue; seen.add(fn);
+      rows.push({ fn, ep: modEpoch(+m[1],+m[2],+m[3],+m[4],+m[5],m[6]) });
+    }
+    return rows.sort((a,b)=>a.ep-b.ep);
   } catch(e){ console.error('s53mv', loc, 'list failed:', e.message); return []; }
   finally { clearTimeout(t); }
 }
@@ -151,7 +157,7 @@ async function s53Frame(loc, fname){
   const tasks = [];
   for(const { c, list } of lists){
     const have = new Set(existing[c.id].map(f => +f.replace('.jpg','')));
-    const wanted = list.map(fn => ({ fn, ep: s53Epoch(fn) }))
+    const wanted = list
       .filter(x => x.ep != null && (now - x.ep) <= RETENTION_MS && (now - x.ep) >= -300000 && !have.has(x.ep))
       .sort((a,b)=>b.ep-a.ep).slice(0, S53_BACKFILL_CAP);   // newest-missing first, capped
     wanted.forEach(w => tasks.push({ c, fn:w.fn, ep:w.ep }));
