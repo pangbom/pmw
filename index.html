@@ -222,8 +222,14 @@
   .setrow select,.setrow .num{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 9px;font-size:13px}
   .setnote{font-size:11.5px;color:var(--ink-faint);border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
   .camtile{position:relative}
-  .camtile .hovname{position:absolute;left:0;right:0;top:0;bottom:34px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(6,12,18,.15),rgba(6,12,18,.55));opacity:0;transition:opacity .12s;font-size:clamp(17px,2.3vw,28px);font-weight:700;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.7);text-align:center;padding:12px;pointer-events:none}
-  .camtile:hover .hovname{opacity:1}
+  .camframe2{position:relative;aspect-ratio:16/9;background:#0a141d;overflow:hidden}
+  .camframe2 .pic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .camframe2 .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:12px;background:linear-gradient(180deg,#16324a,#0c1822)}
+  .camtile .hovname{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(6,12,18,.12),rgba(6,12,18,.5));opacity:1;transition:opacity .15s;font-size:clamp(17px,2.3vw,27px);font-weight:700;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.75);text-align:center;padding:12px;pointer-events:none}
+  .camtile:hover .hovname{opacity:0}
+  .tlrow{display:flex;align-items:center;gap:9px;padding:7px 11px 3px}
+  .tlslider{flex:1;accent-color:var(--accent);cursor:pointer;height:16px}
+  .tlt{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);min-width:78px;text-align:right;white-space:nowrap}
   .camtile .tbtns{position:absolute;top:7px;right:7px;display:flex;gap:5px;opacity:0;transition:opacity .12s}
   .camtile:hover .tbtns{opacity:1}
   .camtile .tbtn{width:26px;height:26px;border:0;border-radius:6px;background:rgba(6,12,18,.7);color:#dfe8f0;cursor:pointer;font-size:13px;line-height:1}
@@ -541,14 +547,20 @@
 
   function renderCams(){
     var note=document.getElementById("camnote");
-    note.innerHTML='<b>Live webcams — Bovec &amp; Julian Alps launches.</b> Click a cam for its 24-hour timelapse. Drag tiles to reorder · double-click a name to rename · ✕ hides a cam (restore from the row at the bottom). Offline cams sink to the bottom. Sources: S53MV launch cams, ARSO, DARS, whatsupcams.';
+    note.innerHTML='<b>Live webcams — Bovec &amp; Julian Alps launches.</b> Scrub each cam’s 24-hour timeline right here; click the image for full size. Drag tiles to reorder · double-click a name to rename · ✕ hides a cam. Offline cams sink to the bottom. Sources: S53MV launch cams, ARSO, DARS, whatsupcams.';
     var grid=document.getElementById("camgrid");
     if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Loading cams…</div>';
     fetch(LIVE_BASE+"cams-latest.json?ts="+Date.now(),{cache:"no-store"})
       .then(function(r){ if(!r.ok)throw 0; return r.json(); })
       .then(function(j){ CAMS_LATEST=j.cams||[]; paintCamGrid(); })
       .catch(function(){ if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Cams are warming up — first frames appear within a few minutes.</div>'; });
+    // Manifest powers the per-tile timelines; repaint once it arrives.
+    fetch(LIVE_BASE+"cams/manifest.json?ts="+Date.now(),{cache:"no-store"})
+      .then(function(r){ if(!r.ok)throw 0; return r.json(); })
+      .then(function(j){ CAM_MANIFEST=j; if(CAMS_LATEST.length)paintCamGrid(); })
+      .catch(function(){});
   }
+  function camFramesFor(id){ if(!CAM_MANIFEST||!CAM_MANIFEST.cams)return []; var c=CAM_MANIFEST.cams.filter(function(x){return x.id===id;})[0]; return (c&&c.frames)?c.frames:[]; }
   function camName(c){ return (state.camNames&&state.camNames[c.id]) || c.name; }
   function camIsActive(c){ return !!(c.latest && c.t && (Date.now()-c.t) < 90*60000); }
   function orderedCams(){
@@ -558,11 +570,15 @@
     return ids.map(function(id){ return byId[id]; });
   }
   function camTile(c){
-    var nm=camName(c);
-    var img=c.latest?('<img class="pic" loading="lazy" src="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(nm)+'" onerror="this.style.display=\'none\'">'):'<div class="ph">no frame yet</div>';
-    return '<div class="camtile" data-cam="'+c.id+'" draggable="true">'+img+
-      '<div class="hovname">'+escapeHtml(nm)+'</div>'+
-      '<div class="tbtns"><button class="tbtn" data-hide="'+c.id+'" title="Hide cam">✕</button></div>'+
+    var nm=camName(c), frames=camFramesFor(c.id);
+    var img=c.latest?('<img class="pic" data-pic="'+c.id+'" loading="lazy" src="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(nm)+'" onerror="this.style.display=\'none\'">'):'<div class="ph">no frame yet</div>';
+    var tl = frames.length>1
+      ? '<div class="tlrow"><input type="range" class="tlslider" draggable="false" data-tl="'+c.id+'" min="0" max="'+(frames.length-1)+'" value="'+(frames.length-1)+'"><span class="tlt" data-tlt="'+c.id+'">'+fmtClock(frames[frames.length-1].t)+' · now</span></div>'
+      : '';
+    return '<div class="camtile" data-cam="'+c.id+'" draggable="true">'+
+      '<div class="camframe2">'+img+'<div class="hovname">'+escapeHtml(nm)+'</div>'+
+        '<div class="tbtns"><button class="tbtn" data-hide="'+c.id+'" title="Hide cam">✕</button></div></div>'+
+      tl+
       '<div class="cap"><div><div class="nm" data-camname="'+c.id+'" title="Double-click to rename">'+escapeHtml(nm)+'</div><div class="ar">'+escapeHtml(c.area||'')+'</div></div>'+
       (c.t?'<span class="live">'+camAge(c.t)+'</span>':'<span class="live off">offline</span>')+'</div></div>';
   }
@@ -790,11 +806,18 @@
       var h=e.target.closest("[data-hide]"); if(h){ e.stopPropagation(); state.camHidden[h.getAttribute("data-hide")]=true; persist(); paintCamGrid(); return; }
       var u=e.target.closest("[data-unhide]"); if(u){ delete state.camHidden[u.getAttribute("data-unhide")]; persist(); paintCamGrid(); return; }
       if(e.target.closest("[data-camname]")) return; // name: dblclick renames, single click does nothing
+      if(e.target.closest(".tlrow")) return;          // timeline: scrub, don't open
       var t=e.target.closest("[data-cam]"); if(t)openCam(t.getAttribute("data-cam"));
+    });
+    cg.addEventListener("input",function(e){
+      var s=e.target.closest(".tlslider"); if(!s)return;
+      var id=s.getAttribute("data-tl"), frames=camFramesFor(id), f=frames[+s.value]; if(!f)return;
+      var img=cg.querySelector('.pic[data-pic="'+id+'"]'); if(img){ img.style.display=""; img.src=LIVE_BASE+f.f; }
+      var t=cg.querySelector('.tlt[data-tlt="'+id+'"]'); if(t)t.textContent=fmtClock(f.t)+((+s.value===frames.length-1)?' · now':'');
     });
     cg.addEventListener("dblclick",function(e){ var n=e.target.closest("[data-camname]"); if(n){ e.preventDefault(); startCamRename(n.getAttribute("data-camname")); } });
     var camDragId=null;
-    cg.addEventListener("dragstart",function(e){ var t=e.target.closest(".camtile"); if(!t){e.preventDefault();return;} camDragId=t.getAttribute("data-cam"); t.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",camDragId);}catch(_){} });
+    cg.addEventListener("dragstart",function(e){ if(e.target.closest(".tlrow")){ e.preventDefault(); return; } var t=e.target.closest(".camtile"); if(!t){e.preventDefault();return;} camDragId=t.getAttribute("data-cam"); t.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",camDragId);}catch(_){} });
     cg.addEventListener("dragover",function(e){ e.preventDefault(); });
     cg.addEventListener("drop",function(e){ e.preventDefault(); var t=e.target.closest(".camtile"); if(!camDragId||!t)return; var tgt=t.getAttribute("data-cam"); if(tgt===camDragId)return; reorderCam(camDragId,tgt); });
     cg.addEventListener("dragend",function(){ camDragId=null; var d=cg.querySelector(".dragging"); if(d)d.classList.remove("dragging"); });
