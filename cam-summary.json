@@ -1,0 +1,97 @@
+{
+ "now": "2026-09-01T16:48:18.764Z",
+ "cams": [
+  {
+   "id": "arso_bovec_ne",
+   "frames": 0
+  },
+  {
+   "id": "arso_bovec_nw",
+   "frames": 0
+  },
+  {
+   "id": "arso_kredarica_e",
+   "frames": 1,
+   "newest": "2026-09-01T16:47:46.598Z",
+   "ageMin": 1,
+   "spanH": 0
+  },
+  {
+   "id": "arso_kredarica_se",
+   "frames": 1,
+   "newest": "2026-09-01T16:47:46.598Z",
+   "ageMin": 1,
+   "spanH": 0
+  },
+  {
+   "id": "dars_predel",
+   "frames": 1,
+   "newest": "2026-09-01T16:47:46.598Z",
+   "ageMin": 1,
+   "spanH": 0
+  },
+  {
+   "id": "dars_ucja",
+   "frames": 1,
+   "newest": "2026-09-01T16:47:46.598Z",
+   "ageMin": 1,
+   "spanH": 0
+  },
+  {
+   "id": "s53_bovec",
+   "frames": 14,
+   "newest": "2026-09-01T15:40:32.691Z",
+   "ageMin": 68,
+   "spanH": 3
+  },
+  {
+   "id": "s53_crnaprst",
+   "frames": 14,
+   "newest": "2026-09-01T14:42:17.000Z",
+   "ageMin": 126,
+   "spanH": 2.2
+  },
+  {
+   "id": "s53_kanin",
+   "frames": 14,
+   "newest": "2026-09-01T16:17:18.991Z",
+   "ageMin": 31,
+   "spanH": 2.8
+  },
+  {
+   "id": "s53_kobarid",
+   "frames": 14,
+   "newest": "2026-09-01T09:29:32.000Z",
+   "ageMin": 439,
+   "spanH": 1.1
+  },
+  {
+   "id": "s53_kuk",
+   "frames": 14,
+   "newest": "2026-09-01T14:42:16.000Z",
+   "ageMin": 126,
+   "spanH": 2.2
+  },
+  {
+   "id": "s53_stol",
+   "frames": 14,
+   "newest": "2026-09-01T14:39:58.984Z",
+   "ageMin": 128,
+   "spanH": 2.7
+  },
+  {
+   "id": "s53_stoln",
+   "frames": 14,
+   "newest": "2026-09-01T14:42:18.000Z",
+   "ageMin": 126,
+   "spanH": 2.2
+  },
+  {
+   "id": "si_logmangart01",
+   "frames": 1,
+   "newest": "2026-09-01T16:47:46.598Z",
+   "ageMin": 1,
+   "spanH": 0
+  }
+ ]
+}
