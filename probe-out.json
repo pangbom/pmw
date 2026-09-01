@@ -1,37 +1,41 @@
 {
- "generated": "2026-08-31T07:49:12.911Z",
+ "generated": "2026-09-01T16:28:27.060Z",
  "results": [
   {
-   "id": "dars_predel_direct",
-   "error": "UND_ERR_CONNECT_TIMEOUT"
+   "loc": "Stol",
+   "listStatus": 200,
+   "frameCount": 370,
+   "oldest": "20260829220958",
+   "newest": "20260901160958",
+   "newestFrame": {
+    "status": 200,
+    "bytes": 344036,
+    "jpeg": true
+   }
   },
   {
-   "id": "dars_predel_wsrv",
-   "status": 200,
-   "bytes": 70659,
-   "jpeg": true,
-   "ct": "image/jpeg"
+   "loc": "Kanin",
+   "listStatus": 200,
+   "frameCount": 354,
+   "oldest": "20260829235718",
+   "newest": "20260901180718",
+   "newestFrame": {
+    "status": 200,
+    "bytes": 323840,
+    "jpeg": true
+   }
   },
   {
-   "id": "dars_ucja_wsrv",
-   "status": 200,
-   "bytes": 76389,
-   "jpeg": true,
-   "ct": "image/jpeg"
-  },
-  {
-   "id": "dars_predel_weserv",
-   "status": 200,
-   "bytes": 70659,
-   "jpeg": true,
-   "ct": "image/jpeg"
-  },
-  {
-   "id": "arso_bovec_nw",
-   "status": 200,
-   "bytes": 1665,
-   "jpeg": true,
-   "ct": "image/jpeg"
+   "loc": "Bovec",
+   "listStatus": 200,
+   "frameCount": 340,
+   "oldest": "20260829230031",
+   "newest": "20260901172032",
+   "newestFrame": {
+    "status": 200,
+    "bytes": 253848,
+    "jpeg": true
+   }
   }
  ]
 }
