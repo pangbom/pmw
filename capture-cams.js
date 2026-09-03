@@ -34,6 +34,17 @@ const MIN_BYTES = 4000;
 const cams = JSON.parse(fs.readFileSync('cams.json', 'utf8'));
 
 function sha1(buf){ return crypto.createHash('sha1').update(buf).digest('hex'); }
+// A frame is only usable if it's a COMPLETE JPEG: starts with SOI (FF D8) and ends with EOI
+// (FF D9). Truncated downloads (proxy cut the body short) still start valid but never reach EOI,
+// so they render as a half-image with a grey lower band — this rejects those.
+function jpegComplete(buf){
+  if(!buf || buf.length < 1024) return false;
+  if(buf[0] !== 0xFF || buf[1] !== 0xD8) return false;
+  for(let i = buf.length - 2; i >= Math.max(2, buf.length - 32); i--){
+    if(buf[i] === 0xFF && buf[i+1] === 0xD9) return true;
+  }
+  return false;
+}
 function frameEpoch(fname){ const m = fname.match(/^(\d+)\.jpg$/); return m ? +m[1] : null; }
 
 const DIAG = [];
@@ -49,7 +60,7 @@ async function grabOnce(cam){
     if(cam.referer){ headers['Referer'] = cam.referer; headers['Origin'] = cam.referer.replace(/\/$/,''); }
     const r = await fetch(fetchUrl(cam), { signal: ctrl.signal, headers });
     const buf = Buffer.from(await r.arrayBuffer());
-    const jpeg = buf.length > 1024 && buf[0] === 0xFF && buf[1] === 0xD8;
+    const jpeg = jpegComplete(buf);   // complete JPEG only — rejects truncated / half-loaded frames
     return { status: r.status, ok: r.ok, buf, jpeg };
   } finally { clearTimeout(timer); }
 }
@@ -118,7 +129,7 @@ async function s53Frame(loc, fname){
   try {
     const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
     const buf = Buffer.from(await r.arrayBuffer());
-    if(r.ok && buf.length>1024 && buf[0]===0xFF && buf[1]===0xD8) return buf;
+    if(r.ok && jpegComplete(buf)) return buf;   // complete JPEG only — skip truncated frames
     return null;
   } catch(e){ return null; } finally { clearTimeout(t); }
 }
