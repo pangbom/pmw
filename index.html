@@ -54,7 +54,14 @@
   .banner.stale strong{color:#ffd4cf}
 
   header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--header-bg)}
-  .brand h1{font-size:18px;font-weight:600;margin:0;letter-spacing:.01em}
+  .brand{display:flex;align-items:center;flex-wrap:wrap}
+  .brand h1{font-size:18px;font-weight:600;margin:0;letter-spacing:.01em;white-space:nowrap}
+  .sdot{width:9px;height:9px;border-radius:50%;background:var(--ink-faint);display:inline-block;margin-right:9px;flex:0 0 auto}
+  .sdot.green{background:var(--go);box-shadow:0 0 7px var(--go)}
+  .sdot.amber{background:var(--caution);box-shadow:0 0 6px var(--caution)}
+  .sdot.red{background:var(--danger);box-shadow:0 0 7px var(--danger)}
+  .supd{margin-left:11px;font-size:12px;color:var(--ink-dim);font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  [hidden]{display:none!important}
   header .spacer{flex:1}
   .controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .ctl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim)}
@@ -85,7 +92,15 @@
   .app{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);height:100%}
   #map{height:100%;width:100%;background:#0a1119}
   .board{overflow-y:auto;border-left:1px solid var(--line);padding:14px 16px 40px}
-  @media (max-width:900px){.content{height:auto}.app{grid-template-columns:1fr}#map{height:42vh;min-height:260px}.board{border-left:0;border-top:1px solid var(--line)}}
+  @media (max-width:900px){.content{height:auto}.app{grid-template-columns:1fr}#map{height:42vh;min-height:260px}.board{border-left:0;border-top:1px solid var(--line)}
+    /* Phone: the title + tabs stick to the top and slide out of the way as you scroll down, back in as you scroll up. */
+    #topchrome{position:sticky;top:0;z-index:600;background:var(--bg);transition:transform .28s ease;will-change:transform}
+    body.chrome-hidden #topchrome{transform:translateY(-105%)}
+    header{gap:10px;padding:10px 14px}
+    .controls{gap:10px}
+    .supd{margin-left:0;margin-top:1px;flex-basis:100%}
+    .lists{padding:8px 14px}
+  }
 
   .cards{display:flex;flex-direction:column;gap:9px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;position:relative;transition:border-color .12s,box-shadow .12s}
@@ -295,26 +310,20 @@
   [data-graph]{cursor:crosshair}
 </style>
 
-<div class="banner" id="banner"><strong>Pure Mountain Weather</strong> &mdash; loading observed wind, Soča valley…</div>
+<div id="topchrome">
+<div class="banner" id="banner" hidden></div>
 
 <header>
-  <div class="brand"><h1>Pure Mountain Weather</h1></div>
+  <div class="brand"><span class="sdot" id="statusDot" title="Data freshness"></span><h1>Pure Mountain Weather</h1><span class="supd" id="statusTxt"></span></div>
   <div class="spacer"></div>
   <div class="controls">
     <div class="ctl"><label>View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button></div></div>
-    <div class="ctl"><label>Unit</label><div class="seg" id="unitSeg"><button data-u="kn">kt</button><button data-u="ms">m/s</button><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div></div>
-    <div class="ctl"><label>Caution &#8805;</label><input class="num" id="caution" type="number" min="0" step="0.5"><span id="cautionUnit">m/s</span></div>
-    <div class="ctl"><label>Danger &#8805;</label><input class="num" id="danger" type="number" min="0" step="0.5"><span id="dangerUnit">m/s</span></div>
-    <div class="ctl"><label>Graph</label><div class="seg" id="sparkSeg"><button data-sr="2">2h</button><button data-sr="6">6h</button><button data-sr="12">12h</button><button data-sr="24">24h</button></div></div>
-    <button class="act" id="camsBtn">&#9673; Webcams</button>
     <button class="act" id="settingsBtn">&#9881; Settings</button>
     <button class="act" id="refresh"><span id="refIcon">&#8635;</span> Refresh</button>
   </div>
 </header>
 
 <div class="lists" id="lists"></div>
-<div class="pin-legend" id="legend" style="display:none">
-  <span>Barb: &#9711; = station &middot; &frac12; = 5, | = 10, &#9650; = 50 kt &middot; staff points into the wind.</span>
 </div>
 
 <div class="content" id="content">
@@ -337,7 +346,6 @@
   </div>
 </div>
 
-<div class="footer"><span>Observed data only (no forecasts).</span><span>Sources: skytech.si launch anemometers + ARSO high stations. Auto-refreshes every 5 min from data.json; Open-Meteo model shown only if data goes stale.</span></div>
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 <div class="hovergraph" id="hoverGraph"></div>
@@ -391,6 +399,13 @@
     try{ window.localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
   }
   function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden}); }
+  // Cross-device sync: pack lists + settings into a link (#sync=…). Opening that link on another
+  // device imports them. Manual carry (no server) — this is the local-storage-per-device workaround.
+  function b64enc(str){ return btoa(unescape(encodeURIComponent(str))); }
+  function b64dec(b){ return decodeURIComponent(escape(atob(b))); }
+  function syncPayload(){ return { v:1, lists:state.lists, s:{ unit:state.unit, caution:state.caution, danger:state.danger, skin:state.skin, basemap:state.basemap, sparkRange:state.sparkRange, indicator:state.indicator, barbScale:state.barbScale, calmScale:state.calmScale, camNames:state.camNames, camOrder:state.camOrder, camHidden:state.camHidden, order:state.order, mapHidden:state.mapHidden } }; }
+  function makeSyncLink(){ try{ return location.origin+location.pathname+"#sync="+encodeURIComponent(b64enc(JSON.stringify(syncPayload()))); }catch(e){ return null; } }
+  function applySyncHash(){ var m=(location.hash||"").match(/[#&]sync=([^&]+)/); if(!m)return false; try{ var o=JSON.parse(b64dec(decodeURIComponent(m[1]))); if(o.lists)state.lists=o.lists; var q=o.s||{}; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.skin)state.skin=q.skin; if(q.basemap)state.basemap=q.basemap; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.indicator)state.indicator=q.indicator; if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.camNames)state.camNames=q.camNames; if(q.camOrder)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.order)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; persist(); try{history.replaceState(null,"",location.pathname+location.search);}catch(_){} return true; }catch(e){ return false; } }
 
   function disp(kmh){ return kmh*FROM_KMH[state.unit]; }
   function knots(kmh){ return kmh*0.539957; }
@@ -625,11 +640,17 @@
   // from raw.githubusercontent (no ads, fully in-app). cams-latest.json = newest frame per cam;
   // cams/manifest.json = the rolling 24h list the scrubber scrolls through.
   var LIVE_BASE="https://raw.githubusercontent.com/pangbom/pmw/camstore/";
+  // raw.githubusercontent throttles/aborts image requests, so the browser often gets a half-
+  // downloaded (grey-bottom) frame and then caches it. We serve frame images through the wsrv.nl
+  // image CDN instead: it fetches each frame from GitHub once on its own servers, caches it, and
+  // returns a complete image every time. `w` requests a downscaled copy (thumbnails). On any wsrv
+  // failure the <img> onerror handler falls back to the direct raw URL once.
+  function camSrc(path,w){ var raw=LIVE_BASE+path; return "https://wsrv.nl/?url="+encodeURIComponent(raw)+"&output=jpg&maxage=1d"+(w?("&w="+w+"&fit=cover&we"):""); }
+  function camImgErr(el){ if(el.getAttribute("data-fb")){ el.style.display="none"; return; } el.setAttribute("data-fb","1"); var p=el.getAttribute("data-raw"); if(p) el.src=p; else el.style.display="none"; }
   var CAMS_LATEST=[], CAM_MANIFEST=null, scrub={id:null,frames:[],i:0,playing:false,timer:null};
 
   function renderCams(){
-    var note=document.getElementById("camnote");
-    note.innerHTML='<b>Live webcams — Bovec &amp; Julian Alps launches.</b> Scrub each cam’s 24-hour timeline right here; click the image for full size. Drag tiles to reorder · double-click a name to rename · ✕ hides a cam. Offline cams sink to the bottom. Sources: S53MV launch cams, ARSO, DARS, whatsupcams.';
+    var note=document.getElementById("camnote"); if(note)note.hidden=true;
     var grid=document.getElementById("camgrid");
     if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Loading cams…</div>';
     fetch(LIVE_BASE+"cams-latest.json?ts="+Date.now(),{cache:"no-store"})
@@ -653,7 +674,7 @@
   }
   function camTile(c){
     var nm=camName(c), frames=camFramesFor(c.id);
-    var img=c.latest?('<img class="pic" data-pic="'+c.id+'" loading="lazy" src="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(nm)+'" onerror="this.style.display=\'none\'">'):'<div class="ph">no frame yet</div>';
+    var img=c.latest?('<img class="pic" data-pic="'+c.id+'" loading="lazy" src="'+camSrc(c.latest,480)+'" data-raw="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(nm)+'" onerror="camImgErr(this)">'):'<div class="ph">no frame yet</div>';
     var tl = frames.length>1
       ? '<div class="tlrow"><input type="range" class="tlslider" draggable="false" data-tl="'+c.id+'" min="0" max="'+(frames.length-1)+'" value="'+(frames.length-1)+'"><span class="tlt" data-tlt="'+c.id+'">'+fmtClock(frames[frames.length-1].t)+' · now</span></div>'
       : '';
@@ -695,7 +716,7 @@
     document.getElementById("modal").className="modal cammodal";
     document.getElementById("modal").innerHTML=
       '<div class="mhead"><h3>'+escapeHtml(c.name)+' <span style="color:var(--ink-faint);font-weight:400;font-size:13px">· '+escapeHtml(c.area)+'</span></h3><button class="close" data-close="1">✕</button></div>'+
-      '<div class="camframe big"><img id="scrubImg" src="'+(c.latest?LIVE_BASE+c.latest:'')+'" alt="'+escapeHtml(c.name)+'"><div class="scrubtime" id="scrubTime">loading…</div></div>'+
+      '<div class="camframe big"><img id="scrubImg" src="'+(c.latest?camSrc(c.latest):'')+'" data-raw="'+(c.latest?LIVE_BASE+c.latest:'')+'" onerror="camImgErr(this)" alt="'+escapeHtml(c.name)+'"><div class="scrubtime" id="scrubTime">loading…</div></div>'+
       '<div class="scrubbar">'+
         '<button class="sbtn" id="scrubPlay" title="Play timelapse">▶</button>'+
         '<input type="range" id="scrubSlider" min="0" max="0" value="0" step="1">'+
@@ -726,7 +747,7 @@
   function spanHrs(frames){ if(frames.length<2)return'—'; var h=(frames[frames.length-1].t-frames[0].t)/3600000; return h>=1?h.toFixed(1)+'h':Math.round(h*60)+'m'; }
   function showScrub(i){
     var f=scrub.frames[i]; if(!f)return;
-    var img=document.getElementById("scrubImg"); if(img)img.src=LIVE_BASE+f.f;
+    var img=document.getElementById("scrubImg"); if(img){ img.removeAttribute("data-fb"); img.setAttribute("data-raw",LIVE_BASE+f.f); img.src=camSrc(f.f); }
     var t=document.getElementById("scrubTime"); if(t)t.textContent=fmtClock(f.t)+(i===scrub.frames.length-1?' · newest':'');
   }
   function fmtClock(epoch){ var d=new Date(epoch); return d.toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'}); }
@@ -828,7 +849,6 @@
     document.getElementById("listview").style.display=state.view==="list"?"":"none";
     document.getElementById("chartview").style.display=state.view==="chart"?"":"none";
     document.getElementById("camsview").style.display=state.view==="cams"?"":"none";
-    document.getElementById("legend").style.display=state.view==="map"?"":"none";
     if(state.view==="map"&&map){ setTimeout(function(){ map.invalidateSize(); },60); }
   }
   function toggleMember(listId,sid){ if(!sid)return; var l=listById(listId); if(!l)return; var i=l.members.indexOf(sid); if(i>=0)l.members.splice(i,1); else l.members.push(sid); persist(); renderLists(); render(); }
@@ -857,11 +877,15 @@
         '<div class="setrow"><label>Wind indicator</label><div class="seg" id="indSeg"><button data-ind="barb" class="'+(state.indicator!=="arrow"?"on":"")+'">Barbs</button><button data-ind="arrow" class="'+(state.indicator==="arrow"?"on":"")+'">Arrows</button></div></div>'+
         '<div class="setrow"><label>Indicator size</label><input type="range" id="setBarb" min="0.6" max="1.8" step="0.1" value="'+(state.barbScale||1)+'"><span class="setval" id="setBarbV">'+(state.barbScale||1).toFixed(1)+'×</span></div>'+
         '<div class="setrow"><label>Calm-circle size</label><input type="range" id="setCalm" min="0.6" max="2" step="0.1" value="'+(state.calmScale||1)+'"><span class="setval" id="setCalmV">'+(state.calmScale||1).toFixed(1)+'×</span></div>'+
-        '<div class="setrow"><label>Caution ≥ ('+u+')</label><input class="num" id="setCaution" type="number" min="0" step="0.5" value="'+threshFmt(state.caution)+'"></div>'+
-        '<div class="setrow"><label>Danger ≥ ('+u+')</label><input class="num" id="setDanger" type="number" min="0" step="0.5" value="'+threshFmt(state.danger)+'"></div>'+
+        '<div class="setrow"><label>Unit</label><div class="seg" id="setUnit"><button data-u="kn">kt</button><button data-u="ms">m/s</button><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div></div>'+
+        '<div class="setrow"><label id="setCautionLbl">Caution ≥ ('+u+')</label><input class="num" id="setCaution" type="number" min="0" step="0.5" value="'+threshFmt(state.caution)+'"></div>'+
+        '<div class="setrow"><label id="setDangerLbl">Danger ≥ ('+u+')</label><input class="num" id="setDanger" type="number" min="0" step="0.5" value="'+threshFmt(state.danger)+'"></div>'+
+        '<div class="setrow"><label>Graph span</label><div class="seg" id="setSpark"><button data-sr="2">2h</button><button data-sr="6">6h</button><button data-sr="12">12h</button><button data-sr="24">24h</button></div></div>'+
         '<div class="setrow"><label>Skin</label><select id="setSkin"><option value="dark">Dark</option><option value="light">Light</option><option value="daylight">Daylight (bright sun)</option><option value="midnight">Midnight (OLED)</option></select></div>'+
         '<div class="setrow"><label>Default map</label><select id="setBasemap"><option value="dark">Dark</option><option value="light">Streets</option><option value="terrain">Terrain</option><option value="satellite">Satellite</option></select></div>'+
-        '<div class="setnote">Barbs show speed (½=5, |=10, ▲=50 kt); arrows show direction with length scaled to speed. Settings save on this device.</div>'+
+        '<div class="setrow"><label>Sync to another device</label><button class="act" id="setSyncBtn">Copy sync link</button></div>'+
+        '<div class="setrow" id="setSyncRow" hidden><input class="num" id="setSyncLink" readonly style="flex:1;min-width:0;font-family:\'IBM Plex Mono\',monospace;font-size:11px"><span class="setval" id="setSyncMsg"></span></div>'+
+        '<div class="setnote">Barbs show speed (½=5, |=10, ▲=50 kt); arrows show direction with length scaled to speed. Settings save on this device. The sync link carries your lists + settings to another device — copy it, open it there once, and they import (it\'s a manual copy; re-copy after changing lists).</div>'+
       '</div>';
     document.getElementById("setBasemap").value=state.basemap;
     document.getElementById("setSkin").value=state.skin||"dark";
@@ -874,21 +898,29 @@
     var sc2=document.getElementById("setCaution"); sc2.addEventListener("change",function(){ state.caution=dispToKnots(+sc2.value||0); persist(); refreshThreshUI(); render(); });
     var sd=document.getElementById("setDanger"); sd.addEventListener("change",function(){ state.danger=dispToKnots(+sd.value||0); persist(); refreshThreshUI(); render(); });
     document.getElementById("setBasemap").addEventListener("change",function(e){ setBasemap(e.target.value,true); });
+    setSeg("setUnit","data-u",state.unit); setSeg("setSpark","data-sr",state.sparkRange);
+    function setThreshLabels(){ var uu=UNIT_LABEL[state.unit], cl=document.getElementById("setCautionLbl"), dl=document.getElementById("setDangerLbl"), sc=document.getElementById("setCaution"), sd=document.getElementById("setDanger"); if(cl)cl.textContent="Caution ≥ ("+uu+")"; if(dl)dl.textContent="Danger ≥ ("+uu+")"; if(sc)sc.value=threshFmt(state.caution); if(sd)sd.value=threshFmt(state.danger); }
+    document.getElementById("setUnit").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.unit=b.getAttribute("data-u"); setSeg("setUnit","data-u",state.unit); persist(); refreshThreshUI(); setThreshLabels(); render(); });
+    document.getElementById("setSpark").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.sparkRange=+b.getAttribute("data-sr"); setSeg("setSpark","data-sr",state.sparkRange); persist(); if(state.view==="map"||state.view==="list")render(); });
+    document.getElementById("setSyncBtn").addEventListener("click",function(){ var link=makeSyncLink(), row=document.getElementById("setSyncRow"), inp=document.getElementById("setSyncLink"), msg=document.getElementById("setSyncMsg"); if(!link){ if(msg)msg.textContent="couldn't build link"; return; } row.hidden=false; inp.value=link; try{inp.focus();inp.select();}catch(_){} if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(function(){ msg.textContent="copied ✓"; },function(){ msg.textContent="select & copy"; }); } else { msg.textContent="select & copy"; } });
   }
   function wire(){
     document.getElementById("viewSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.view=b.getAttribute("data-v"); setSeg("viewSeg","data-v",state.view); applyView(); render(); });
-    document.getElementById("unitSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.unit=b.getAttribute("data-u"); setSeg("unitSeg","data-u",state.unit); persist(); refreshThreshUI(); render(); });
     document.getElementById("rangeSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.chartRange=+b.getAttribute("data-r"); setSeg("rangeSeg","data-r",state.chartRange); persist(); renderChart(); });
     document.getElementById("metricSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.chartMetric=b.getAttribute("data-m"); setSeg("metricSeg","data-m",state.chartMetric); persist(); renderChart(); });
     document.getElementById("chartlegend").addEventListener("click",function(e){ var c=e.target.closest("[data-legend]"); if(!c)return; var id=c.getAttribute("data-legend"); state.chartHidden[id]=!state.chartHidden[id]; renderChart(); });
     var cw=document.getElementById("chartwrap"); cw.addEventListener("mousemove",chartMove); cw.addEventListener("mouseleave",chartLeave);
-    var cEl=document.getElementById("caution"), dEl=document.getElementById("danger");
-    cEl.addEventListener("change",function(){ state.caution=dispToKnots(+cEl.value||0); persist(); refreshThreshUI(); render(); });
-    dEl.addEventListener("change",function(){ state.danger=dispToKnots(+dEl.value||0); persist(); refreshThreshUI(); render(); });
     document.getElementById("refresh").addEventListener("click",function(){ var ic=document.getElementById("refIcon"); if(ic)ic.textContent="…"; loadData().then(function(){ if(ic)ic.textContent="↻"; }); });
-    document.getElementById("camsBtn").addEventListener("click",function(){ state.view="cams"; setSeg("viewSeg","data-v","cams"); applyView(); render(); });
     document.getElementById("settingsBtn").addEventListener("click",openSettings);
-    document.getElementById("sparkSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.sparkRange=+b.getAttribute("data-sr"); setSeg("sparkSeg","data-sr",state.sparkRange); persist(); if(state.view==="map"||state.view==="list")render(); });
+    // Phone only: slide the title + tabs (#topchrome) up when scrolling down, back in when scrolling up.
+    var lastY=0, chromeHidden=false;
+    window.addEventListener("scroll",function(){
+      if(window.innerWidth>900){ if(chromeHidden){document.body.classList.remove("chrome-hidden");chromeHidden=false;} return; }
+      var y=window.pageYOffset||document.documentElement.scrollTop||0;
+      if(y>70 && y>lastY+5){ if(!chromeHidden){document.body.classList.add("chrome-hidden");chromeHidden=true;} }
+      else if(y<lastY-5 || y<70){ if(chromeHidden){document.body.classList.remove("chrome-hidden");chromeHidden=false;} }
+      lastY=y;
+    },{passive:true});
     document.getElementById("overlay").addEventListener("click",function(e){ if(e.target.id==="overlay"||e.target.getAttribute("data-close"))closeCams(); });
     // Cams: hide / unhide / rename / open / drag-reorder
     var cg=document.getElementById("camgrid");
@@ -903,7 +935,7 @@
     cg.addEventListener("input",function(e){
       var s=e.target.closest(".tlslider"); if(!s)return;
       var id=s.getAttribute("data-tl"), frames=camFramesFor(id), f=frames[+s.value]; if(!f)return;
-      var img=cg.querySelector('.pic[data-pic="'+id+'"]'); if(img){ img.style.display=""; img.src=LIVE_BASE+f.f; }
+      var img=cg.querySelector('.pic[data-pic="'+id+'"]'); if(img){ img.style.display=""; img.removeAttribute("data-fb"); img.setAttribute("data-raw",LIVE_BASE+f.f); img.src=camSrc(f.f,480); }
       var t=cg.querySelector('.tlt[data-tlt="'+id+'"]'); if(t)t.textContent=fmtClock(f.t)+((+s.value===frames.length-1)?' · now':'');
     });
     cg.addEventListener("dblclick",function(e){ var n=e.target.closest("[data-camname]"); if(n){ e.preventDefault(); startCamRename(n.getAttribute("data-camname")); } });
@@ -972,12 +1004,17 @@
       .catch(function(){ DATA_META.model=null; return null; });
   }
   function updateStaleUI(){
-    var banner=document.getElementById("banner"); if(!banner)return;
+    var banner=document.getElementById("banner");
+    var dot=document.getElementById("statusDot"), txt=document.getElementById("statusTxt");
     var gen=DATA_META.generated?Date.parse(DATA_META.generated):null;
     var ageMin=gen?Math.round((Date.now()-gen)/60000):null;
     var stale=(!STATIONS.length)||(ageMin==null)||(ageMin>STALE_MIN);
-    if(!stale){ banner.className="banner"; banner.innerHTML='<strong>Pure Mountain Weather</strong> &mdash; live observed wind, Soča valley. Updated '+fmtClock(gen)+' ('+ageMin+'m ago).'; return; }
-    banner.className="banner stale";
+    var level=stale?"red":(ageMin<=15?"green":"amber");
+    if(dot) dot.className="sdot "+level;
+    if(txt) txt.textContent=gen?("Updated "+fmtClock(gen)+((ageMin!=null&&ageMin>=3)?" ("+ageMin+"m)":"")):"loading…";
+    if(!banner)return;
+    if(!stale){ banner.hidden=true; banner.className="banner"; return; }
+    banner.hidden=false; banner.className="banner stale";
     var lastTxt=gen?('last observed update '+fmtClock(gen)+' ('+ageMin+'m ago)'):'no observed data loaded';
     var m=DATA_META.model;
     if(m){ banner.innerHTML='⚠ Observed data STALE — '+lastTxt+'. Showing <strong>MODEL</strong> wind for Bovec DZ: '+fmt(m.windKmh)+' '+UNIT_LABEL[state.unit]+', gust '+fmt(m.gustKmh)+', from '+Math.round(m.dir)+'° '+compass(m.dir)+' — <strong>MODEL, not observed.</strong>'; }
@@ -1016,6 +1053,7 @@
       if(v[0]&&v[0].length){ state.lists=v[0]; if(!listById("fav"))state.lists.unshift({id:"fav",name:"Favourites",builtin:true,members:[]}); }
       if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir;
         if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; }
+      applySyncHash();   // a #sync=… link (opened on this device) overrides local settings + imports lists
       applySkin(state.skin);
       setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
       refreshThreshUI();

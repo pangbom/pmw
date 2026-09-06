@@ -12,5 +12,9 @@
   { "id": "arso_kredarica_se","name": "Kredarica – SE",      "place": "Kredarica",     "area": "2514 m · toward Bohinj", "url": "https://meteo.arso.gov.si/uploads/probase/www/observ/webcam/KREDA-ICA_dir/siwc_KREDA-ICA_se_pda.jpg" },
   { "id": "dars_predel",      "name": "Predel pass",         "place": "Approaches",    "area": "N · Log p. Mangartom",   "url": "https://kamere.dars.si/kamere/drsi_vgrc/Predel_Pre1_0001.jpg", "proxy": "wsrv" },
   { "id": "dars_ucja",        "name": "Učja crossing",       "place": "Approaches",    "area": "SW · Žaga / Bovec",      "url": "https://kamere.dars.si/kamere/drsi_vgrc/Ucja_Ucj1_0001.jpg", "proxy": "wsrv" },
-  { "id": "si_logmangart01",  "name": "Log pod Mangartom",   "place": "Log pod Mangartom", "area": "valley · adventure resort", "url": "https://cdn.whatsupcams.com/snapshot/si_logmangart01.jpg", "referer": "https://services.whatsupcams.com/" }
+  { "id": "si_logmangart01",  "name": "Log pod Mangartom",   "place": "Log pod Mangartom", "area": "valley · adventure resort", "url": "https://cdn.whatsupcams.com/snapshot/si_logmangart01.jpg", "referer": "https://services.whatsupcams.com/" },
+  { "id": "windy_bovec_e",    "name": "Bovec – East",        "place": "Bovec",         "area": "valley · Windy",         "url": "https://images-webcams.windy.com/28/1688623528/current/full/1688623528.jpg", "proxy": "wsrv" },
+  { "id": "windy_bovec_w",    "name": "Bovec – West",        "place": "Bovec",         "area": "valley · Windy",         "url": "https://images-webcams.windy.com/72/1688622372/current/full/1688622372.jpg", "proxy": "wsrv" },
+  { "id": "bfx_kanin_skalar", "name": "Kanin – Koča P. Skalarja", "place": "Kanin",    "area": "2260 m · launch",        "url": "https://images.bergfex.at/webcams/?id=12033&format=4", "proxy": "wsrv" },
+  { "id": "bfx_kanin_sedlo",  "name": "Kanin – Sedlo",       "place": "Kanin",         "area": "2260 m · launch",        "url": "https://images.bergfex.at/webcams/?id=12034&format=4", "proxy": "wsrv" }
 ]
