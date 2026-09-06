@@ -55,12 +55,14 @@
 
   header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--header-bg)}
   .brand{display:flex;align-items:center;flex-wrap:wrap}
+  .pmwlogo{margin-right:9px;flex:0 0 auto;display:block}
   .brand h1{font-size:18px;font-weight:600;margin:0;letter-spacing:.01em;white-space:nowrap}
-  .sdot{width:9px;height:9px;border-radius:50%;background:var(--ink-faint);display:inline-block;margin-right:9px;flex:0 0 auto}
+  .status{display:inline-flex;align-items:center;margin-left:12px}
+  .sdot{width:9px;height:9px;border-radius:50%;background:var(--ink-faint);display:inline-block;margin-right:7px;flex:0 0 auto}
   .sdot.green{background:var(--go);box-shadow:0 0 7px var(--go)}
   .sdot.amber{background:var(--caution);box-shadow:0 0 6px var(--caution)}
   .sdot.red{background:var(--danger);box-shadow:0 0 7px var(--danger)}
-  .supd{margin-left:11px;font-size:12px;color:var(--ink-dim);font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  .supd{font-size:12px;color:var(--ink-dim);font-family:"IBM Plex Mono",monospace;white-space:nowrap}
   [hidden]{display:none!important}
   header .spacer{flex:1}
   .controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -75,8 +77,8 @@
   button.act{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:7px}
   button.act:hover{border-color:var(--accent);color:var(--ink)}
 
-  .lists{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--lists-bg)}
-  .ltab{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:5px 13px;cursor:pointer;font-size:13px}
+  .lists{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-left:6px}
+  .ltab{display:inline-flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:3px 10px;cursor:pointer;font-size:12px}
   .ltab:hover{color:var(--ink);border-color:#33475f}
   .ltab.on{background:var(--accent);color:var(--on-ink);border-color:var(--accent);font-weight:600}
   .ltab .ct{font-family:"IBM Plex Mono",monospace;font-size:11px;opacity:.8}
@@ -92,14 +94,29 @@
   .app{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);height:100%}
   #map{height:100%;width:100%;background:#0a1119}
   .board{overflow-y:auto;border-left:1px solid var(--line);padding:14px 16px 40px}
-  @media (max-width:900px){.content{height:auto}.app{grid-template-columns:1fr}#map{height:42vh;min-height:260px}.board{border-left:0;border-top:1px solid var(--line)}
+  .botnav{display:none}
+  @media (max-width:900px){.content{height:auto}.app{grid-template-columns:1fr}#map{height:56vh;min-height:300px}.board{border-left:0;border-top:1px solid var(--line)}
+    /* Bottom tab bar (thumb-reachable) replaces the top View tabs on phones. */
+    .viewctl{display:none}
+    .content{padding-bottom:56px}
+    .card{padding:9px 11px}
+    .botnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:700;background:var(--panel);border-top:1px solid var(--line);padding:5px 6px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+    .botnav button{flex:1;background:none;border:0;color:var(--ink-dim);font-size:12.5px;font-weight:600;padding:9px 4px;cursor:pointer;border-radius:9px;font-family:inherit}
+    .botnav button.on{color:var(--accent);background:var(--panel-2)}
     /* Phone: the title + tabs stick to the top and slide out of the way as you scroll down, back in as you scroll up. */
     #topchrome{position:sticky;top:0;z-index:600;background:var(--bg);transition:transform .28s ease;will-change:transform}
     body.chrome-hidden #topchrome{transform:translateY(-105%)}
-    header{gap:10px;padding:10px 14px}
+    header{gap:8px 10px;padding:10px 14px}
     .controls{gap:10px}
-    .supd{margin-left:0;margin-top:1px;flex-basis:100%}
-    .lists{padding:8px 14px}
+    .status{margin-left:9px}
+    .lists{margin-left:0;width:100%}
+  }
+  @media (max-width:560px){
+    /* Phone: icon-only Settings/Refresh + drop the "View" label so the controls fit one row. */
+    .btxt,.viewlbl{display:none}
+    .controls{gap:8px;width:100%}
+    #settingsBtn,#refresh{padding:6px 9px}
+    .banner{font-size:11.5px;padding:5px 12px}
   }
 
   .cards{display:flex;flex-direction:column;gap:9px}
@@ -155,7 +172,7 @@
   .wm{position:relative}
   .wm .gustbarb{opacity:0;transition:opacity .12s}
   .wm.hl .gustbarb{opacity:1}
-  .wm .wm-name{position:absolute;left:50%;top:-3px;transform:translate(-50%,-100%);white-space:nowrap;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11.5px;font-weight:600;color:var(--ink);opacity:0;transition:opacity .12s;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+  .wm .wm-name{position:absolute;left:50%;top:-20px;transform:translate(-50%,-100%);white-space:nowrap;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11.5px;font-weight:600;color:var(--ink);opacity:0;transition:opacity .12s;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.5)}
   .wm.hl .wm-name{opacity:1}
   .wm-top{display:inline-block;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;margin-top:1px}
   .wm-bot{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;margin-top:1px;background:var(--chip-bg);border-radius:5px;padding:0 6px}
@@ -314,16 +331,19 @@
 <div class="banner" id="banner" hidden></div>
 
 <header>
-  <div class="brand"><span class="sdot" id="statusDot" title="Data freshness"></span><h1>Pure Mountain Weather</h1><span class="supd" id="statusTxt"></span></div>
+  <div class="brand">
+    <svg class="pmwlogo" viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M1 20.5L8 8l4 6 3-4.5 7.5 11z" fill="var(--accent)"/><path d="M2.5 5.4c4-2.1 7.2 1.6 10.8.4" fill="none" stroke="var(--ink-dim)" stroke-width="1.7" stroke-linecap="round"/><circle cx="18.5" cy="5" r="1.4" fill="var(--ink-dim)"/></svg>
+    <h1>Pure Mountain Weather</h1>
+    <span class="status"><span class="sdot" id="statusDot" title="Data freshness"></span><span class="supd" id="statusTxt"></span></span>
+  </div>
+  <div class="lists" id="lists"></div>
   <div class="spacer"></div>
   <div class="controls">
-    <div class="ctl"><label>View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button></div></div>
-    <button class="act" id="settingsBtn">&#9881; Settings</button>
-    <button class="act" id="refresh"><span id="refIcon">&#8635;</span> Refresh</button>
+    <div class="ctl viewctl"><label class="viewlbl">View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button></div></div>
+    <button class="act" id="settingsBtn">&#9881; <span class="btxt">Settings</span></button>
+    <button class="act" id="refresh"><span id="refIcon">&#8635;</span> <span class="btxt">Refresh</span></button>
   </div>
 </header>
-
-<div class="lists" id="lists"></div>
 </div>
 
 <div class="content" id="content">
@@ -347,6 +367,13 @@
 </div>
 
 
+<nav class="botnav" id="botnav">
+  <button data-v="map">Map</button>
+  <button data-v="list">List</button>
+  <button data-v="chart">Chart</button>
+  <button data-v="cams">Cams</button>
+</nav>
+
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 <div class="hovergraph" id="hoverGraph"></div>
 
@@ -368,7 +395,7 @@
     chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark", skin:"dark",
     barbScale:1, indicator:"barb", calmScale:1, sparkRange:12,
     camNames:{}, camOrder:[], camHidden:{},
-    order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[{id:"fav",name:"Favourites",builtin:true,members:[]}] };
+    order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[] };
   var editingList=null, openPop=null, lastChart=null;
 
   var UNIT_LABEL={kn:"kt",ms:"m/s",kmh:"km/h",mph:"mph"};
@@ -419,7 +446,7 @@
   function byId(id){ return STATIONS.filter(function(s){return s.id===id;})[0]; }
   function listById(id){ return state.lists.filter(function(l){return l.id===id;})[0]; }
   function fav(){ return listById("fav"); }
-  function inList(list,sid){ return list.members.indexOf(sid)>=0; }
+  function inList(list,sid){ return !!list && list.members.indexOf(sid)>=0; }
   function colorFor(s){ return PALETTE[STATIONS.indexOf(s)%PALETTE.length]; }
   function pad2(n){ return (n<10?"0":"")+n; }
   function ageMinOf(s){ if(s.obsTs){ return Math.max(0,Math.round((Date.now()-s.obsTs)/60000)); } return (typeof s.ageMin==="number")?s.ageMin:null; }
@@ -476,7 +503,7 @@
   // status-coloured) + gust (dashed grey) history, with caution/danger reference lines.
   function hoverGraphSvg(s){
     var u=UNIT_LABEL[state.unit];
-    var W=380,H=196,mL=36,mR=12,mT=8,mB=20,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
+    var W=Math.min(380,(window.innerWidth||380)-40),H=196,mL=36,mR=12,mT=8,mB=20,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
     var all=(s.hi&&s.hi.length)?s.hi:[];
     var hd='<div class="hgttl">'+escapeHtml(s.name)+' <span>'+fmt(s.wind)+' '+u+' &middot; gust '+fmt(s.gust)+'</span></div>';
     if(all.length<2) return hd+'<div class="hgno">no history yet</div>';
@@ -504,6 +531,14 @@
     document.addEventListener("mouseover",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var s=byId(g.getAttribute("data-graph")); if(!s)return; hg.innerHTML=hoverGraphSvg(s); hg.style.display="block"; pos(e); });
     document.addEventListener("mousemove",function(e){ if(hg.style.display!=="block")return; var g=e.target.closest&&e.target.closest("[data-graph]"); if(g)pos(e); else hg.style.display="none"; });
     document.addEventListener("mouseout",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var to=e.relatedTarget; if(to&&to.closest&&to.closest("[data-graph]")===g)return; hg.style.display="none"; });
+    // Touch (no hover): tap a sparkline to open its full graph; tap elsewhere to dismiss.
+    if(window.matchMedia && window.matchMedia("(hover: none)").matches){
+      document.addEventListener("click",function(e){
+        var g=e.target.closest&&e.target.closest("[data-graph]");
+        if(g){ var s=byId(g.getAttribute("data-graph")); if(s){ hg.innerHTML=hoverGraphSvg(s); hg.style.display="block"; var r=g.getBoundingClientRect(), w=hg.offsetWidth||Math.min(360,window.innerWidth-16); var x=Math.max(8,Math.min(window.innerWidth-w-8, r.left)); var y=r.bottom+8; if(y+ (hg.offsetHeight||210) > window.innerHeight-8) y=Math.max(8, r.top-(hg.offsetHeight||210)-8); hg.style.left=x+"px"; hg.style.top=y+"px"; e.stopPropagation(); return; } }
+        if(hg.style.display==="block") hg.style.display="none";
+      });
+    }
   }
   function badge(s){ return s.real?'<span class="live">LIVE</span>':'<span class="samp">sample</span>'; }
   function srcTag(s,cls){ if(s.web) return '<a class="'+cls+'" href="'+s.web+'" target="_blank" rel="noopener">'+s.src+'</a>'; return '<span class="'+cls+'">'+s.src+'</span>'; }
@@ -532,10 +567,10 @@
   function trendChip(s){ var t=windTrend(s); if(t>0) return '<span class="trend t-up" title="wind building over the last hour">↑</span>'; if(t<0) return '<span class="trend t-dn" title="wind easing over the last hour">↓</span>'; return '<span class="trend t-flat" title="wind steady over the last hour">→</span>'; }
 
   function cardHtml(s){
-    var st=statusOf(s.wind), gs=statusOf(s.gust), u=UNIT_LABEL[state.unit], isFav=inList(fav(),s.id);
+    var st=statusOf(s.wind), gs=statusOf(s.gust), u=UNIT_LABEL[state.unit];
     var ser=sparkSeries(s), mn=Math.min.apply(null,ser), mx=Math.max.apply(null,ser);
     return '<div class="card" data-id="'+s.id+'" draggable="true"><div class="head"><div>'+
-      '<div class="nrow"><span class="drag" title="Drag to reorder">\u2630</span><button class="star '+(isFav?"on":"")+'" data-fav="'+s.id+'">'+(isFav?"\u2605":"\u2606")+'</button>'+
+      '<div class="nrow"><span class="drag" title="Drag to reorder">\u2630</span>'+
       '<span class="name">'+escapeHtml(s.name)+'</span>'+srcTag(s,"src")+badge(s)+gustyChip(s)+'<span class="elev">'+s.elev+'\u2009m</span></div></div>'+
       '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'<button class="mini" data-lists="'+s.id+'">\u2630 Lists</button></div></div>'+
       '<div class="cbody"><div class="cinfo">'+compassSvg(s.dir)+
@@ -556,14 +591,13 @@
   function renderTable(vis){
     var u=UNIT_LABEL[state.unit];
     var custOn=state.sortKey==="custom";
-    document.getElementById("thead").innerHTML='<tr><th class="'+(custOn?"sorted":"")+'" data-sort="custom" title="your order">#</th><th style="width:22px"></th>'+COLS.map(function(c){ var on=state.sortKey===c.key; var ar=on?(state.sortDir<0?'\u25bc':'\u25b2'):''; return '<th class="'+(on?"sorted":"")+'" data-sort="'+c.key+'">'+c.label+' <span class="ar">'+ar+'</span></th>'; }).join("")+'<th>12&#8202;h</th><th title="show on map">Map</th></tr>';
+    document.getElementById("thead").innerHTML='<tr><th class="'+(custOn?"sorted":"")+'" data-sort="custom" title="your order">#</th>'+COLS.map(function(c){ var on=state.sortKey===c.key; var ar=on?(state.sortDir<0?'\u25bc':'\u25b2'):''; return '<th class="'+(on?"sorted":"")+'" data-sort="'+c.key+'">'+c.label+' <span class="ar">'+ar+'</span></th>'; }).join("")+'<th>12&#8202;h</th><th title="show on map">Map</th></tr>';
     var rows=vis.slice();
     if(!custOn){ rows.sort(function(a,b){ var av=sortVal(a,state.sortKey),bv=sortVal(b,state.sortKey); if(av<bv)return -1*state.sortDir; if(av>bv)return 1*state.sortDir; return 0; }); }
     var tb=document.getElementById("tbody");
     if(!rows.length){ tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
-    tb.innerHTML=rows.map(function(s){ var isFav=inList(fav(),s.id), ws=statusOf(s.wind), gs=statusOf(s.gust); var pos=state.order.indexOf(s.id)+1; var shown=!state.mapHidden[s.id];
+    tb.innerHTML=rows.map(function(s){ var ws=statusOf(s.wind), gs=statusOf(s.gust); var pos=state.order.indexOf(s.id)+1; var shown=!state.mapHidden[s.id];
       return '<tr data-id="'+s.id+'"><td><input class="ordin" type="number" min="1" value="'+pos+'" data-ord="'+s.id+'"></td>'+
-        '<td class="starcell '+(isFav?"on":"")+'" data-fav="'+s.id+'">'+(isFav?"\u2605":"\u2606")+'</td>'+
         '<td class="name">'+escapeHtml(s.name)+badge(s)+srcTag(s,"srcmini")+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
         '<td>'+dirMini(s.dir)+'</td>'+
         '<td class="w-'+ws+'">'+fmt(s.wind)+' '+u+' '+trendChip(s)+'</td>'+
@@ -820,6 +854,8 @@
       else{ var m=L.marker(ll,{icon:windIcon(s)}).addTo(map); m._trueLatLng=ll;
         m.on("mouseover",function(){ highlightMarker(s.id,true); var el=document.querySelector('.card[data-id="'+s.id+'"]'); if(el){ el.classList.add("hl"); el.scrollIntoView({behavior:"smooth",block:"nearest"}); } });
         m.on("mouseout",function(){ highlightMarker(s.id,false); var el=document.querySelector('.card[data-id="'+s.id+'"]'); if(el)el.classList.remove("hl"); });
+        // Touch: tap a marker to toggle its name + gust barbs (no hover on phones).
+        m.on("click",function(){ var isHl=markers[s.id]&&markers[s.id]._icon&&markers[s.id]._icon.querySelector(".wm.hl"); Object.keys(markers).forEach(function(k){ if(k!==s.id)highlightMarker(k,false); }); highlightMarker(s.id,!isHl); });
         markers[s.id]=m; }
     });
     dodgeMarkers();
@@ -844,6 +880,7 @@
   function setBasemap(key,save){ if(!map)return; var b=BASEMAPS[key]||BASEMAPS.light; if(tileLayer)map.removeLayer(tileLayer); tileLayer=L.tileLayer(b.url,b.opts).addTo(map); state.basemap=key; var sel=document.getElementById("basemapSel"); if(sel)sel.value=key; if(save)persist(); if(state.view==="map")renderMarkers(visibleStations()); }
 
   function setSeg(id,attr,val){ document.querySelectorAll("#"+id+" button").forEach(function(b){ b.classList.toggle("on",b.getAttribute(attr)===String(val)); }); }
+  function setView(v){ state.view=v; setSeg("viewSeg","data-v",v); setSeg("botnav","data-v",v); applyView(); render(); }
   function applyView(){
     document.getElementById("mapview").style.display=state.view==="map"?"":"none";
     document.getElementById("listview").style.display=state.view==="list"?"":"none";
@@ -905,7 +942,8 @@
     document.getElementById("setSyncBtn").addEventListener("click",function(){ var link=makeSyncLink(), row=document.getElementById("setSyncRow"), inp=document.getElementById("setSyncLink"), msg=document.getElementById("setSyncMsg"); if(!link){ if(msg)msg.textContent="couldn't build link"; return; } row.hidden=false; inp.value=link; try{inp.focus();inp.select();}catch(_){} if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(function(){ msg.textContent="copied ✓"; },function(){ msg.textContent="select & copy"; }); } else { msg.textContent="select & copy"; } });
   }
   function wire(){
-    document.getElementById("viewSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.view=b.getAttribute("data-v"); setSeg("viewSeg","data-v",state.view); applyView(); render(); });
+    document.getElementById("viewSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; setView(b.getAttribute("data-v")); });
+    document.getElementById("botnav").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; setView(b.getAttribute("data-v")); window.scrollTo(0,0); });
     document.getElementById("rangeSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.chartRange=+b.getAttribute("data-r"); setSeg("rangeSeg","data-r",state.chartRange); persist(); renderChart(); });
     document.getElementById("metricSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.chartMetric=b.getAttribute("data-m"); setSeg("metricSeg","data-m",state.chartMetric); persist(); renderChart(); });
     document.getElementById("chartlegend").addEventListener("click",function(e){ var c=e.target.closest("[data-legend]"); if(!c)return; var id=c.getAttribute("data-legend"); state.chartHidden[id]=!state.chartHidden[id]; renderChart(); });
@@ -1050,12 +1088,12 @@
 
   function boot(){
     Promise.all([loadStore("pmw_lists"),loadStore("pmw_settings")]).then(function(v){
-      if(v[0]&&v[0].length){ state.lists=v[0]; if(!listById("fav"))state.lists.unshift({id:"fav",name:"Favourites",builtin:true,members:[]}); }
+      if(v[0]&&v[0].length){ state.lists=v[0].filter(function(l){return l.id!=="fav";}); }
       if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir;
         if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; }
       applySyncHash();   // a #sync=… link (opened on this device) overrides local settings + imports lists
       applySkin(state.skin);
-      setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
+      setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("botnav","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
       refreshThreshUI();
       initMap(); wire(); applyView(); renderLists(); render();
       loadData(); setInterval(loadData, 5*60000);
