@@ -131,7 +131,13 @@
   a.src:hover{color:var(--accent);border-color:var(--accent)}
   .live{background:var(--go);color:#04120a;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:4px;padding:1px 5px;margin-left:2px}
   .samp{color:var(--ink-faint);font-size:9px;letter-spacing:.06em;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:2px}
-  .elev{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
+  .bstale{background:var(--caution);color:#2a1e02;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:4px;padding:1px 5px;margin-left:2px}
+  .boff{background:var(--danger);color:#fff;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:4px;padding:1px 5px;margin-left:2px}
+  .elev{font-family:"IBM Plex Sans",system-ui,sans-serif;font-weight:600;color:var(--ink);margin-left:6px}
+  a.name{color:inherit;text-decoration:none}
+  a.name:hover{color:var(--accent);text-decoration:underline}
+  .wt a.name{color:inherit}
+  .upd{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);margin-left:6px}
   .headbtns{display:flex;gap:6px;align-items:center}
   .mini{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);border-radius:7px;padding:4px 8px;font-size:11.5px;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
   .mini:hover{border-color:var(--accent);color:var(--ink)}
@@ -172,22 +178,35 @@
   .wm{position:relative}
   .wm .gustbarb{opacity:0;transition:opacity .12s}
   .wm.hl .gustbarb{opacity:1}
+  .wm.sg .gustbarb{opacity:.92}
+  .wm.offline{opacity:.72}
   .wm .wm-name{position:absolute;left:50%;top:-20px;transform:translate(-50%,-100%);white-space:nowrap;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11.5px;font-weight:600;color:var(--ink);opacity:0;transition:opacity .12s;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.5)}
   .wm.hl .wm-name{opacity:1}
   .wm-top{display:inline-block;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;margin-top:1px}
   .wm-bot{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;margin-top:1px;background:var(--chip-bg);border-radius:5px;padding:0 6px}
   .wm-bot .b{color:#fff;font-weight:600} .wm-bot .g{color:#c7d2dd;font-weight:600;margin-left:6px}
 
-  .map-ctrl{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:3px;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  .map-ctrl{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:3px;box-shadow:0 4px 14px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:3px}
+  .gswitch{display:inline-flex;align-items:center;gap:7px;background:var(--panel);color:var(--ink-dim);border:1px solid var(--line);border-radius:8px;padding:4px 9px 4px 6px;font-size:11.5px;font-family:"IBM Plex Sans",sans-serif;cursor:pointer;white-space:nowrap}
+  .gswitch .knob{position:relative;width:30px;height:17px;border-radius:9px;background:var(--line);transition:background .15s;flex:0 0 auto}
+  .gswitch .knob::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.45)}
+  .gswitch.on{color:var(--ink)}
+  .gswitch.on .knob{background:var(--accent)}
+  .gswitch.on .knob::after{transform:translateX(13px)}
   .map-ctrl select{background:var(--panel-2);color:var(--ink);border:0;border-radius:6px;padding:4px 6px;font-size:12px;font-family:"IBM Plex Sans",sans-serif;cursor:pointer}
   .map-ctrl select:focus{outline:none}
 
   .tableview{height:100%;overflow:auto}
-  table.wt{width:100%;border-collapse:collapse;font-size:13px}
+  table.wt{width:100%;border-collapse:collapse;font-size:14.5px}
+  .wt .rdh{width:26px}
+  .wt td.rowdrag{cursor:grab;color:var(--ink-faint);font-size:15px;text-align:center;width:26px;user-select:none}
+  .wt td.rowdrag:active{cursor:grabbing}
+  .wt tr[draggable="true"]{cursor:grabbing}
+  .wt tr.dragging{opacity:.5}
   .wt th{position:sticky;top:0;background:var(--lists-bg);color:var(--ink-dim);text-align:left;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;z-index:2}
   .wt th.sorted{color:var(--accent)}
   .wt th .ar{font-size:9px;opacity:.85}
-  .wt td{padding:7px 10px;border-bottom:1px solid #1c2b3c;font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  .wt td{padding:8px 11px;border-bottom:1px solid #1c2b3c;font-family:"IBM Plex Mono",monospace;white-space:nowrap}
   .wt td.name{font-family:"IBM Plex Sans",sans-serif;font-weight:600}
   .wt tr:hover td{background:var(--panel)}
   .wt .w-go{color:var(--go)} .wt .w-caution{color:var(--caution)} .wt .w-danger{color:var(--danger)}
@@ -252,6 +271,7 @@
   .camtile .pic{aspect-ratio:16/9;width:100%;display:block;object-fit:cover;background:var(--cam-bg)}
   .camtile .ph{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--ph-bg)}
   .camtile .cap{padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .camtile .camalt{color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:500;margin-left:3px}
   .camtile .cap .nm{font-weight:600;font-size:14px}
   .camtile .cap .ar{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
   .camtile .live{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;letter-spacing:.06em;background:var(--go);color:#04120a;border-radius:4px;padding:1px 6px}
@@ -324,6 +344,16 @@
   .hovergraph .hgttl span{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:11px;color:var(--ink-dim);margin-left:5px}
   .hovergraph svg{display:block}
   .hovergraph .hgno{font-size:11px;color:var(--ink-faint);padding:8px 4px 12px}
+  .hovergraph .hgbox svg{display:block}
+  .hovergraph .graphreadout.hgread{font-size:12px;padding:1px 2px 5px;gap:12px}
+  .modal.graphmodal{max-width:min(820px,95vw)}
+  .graphmodal .ghspan{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;color:var(--ink-dim);margin-left:8px}
+  .graphmodal .graphbox{margin-top:2px;overflow-x:auto}
+  .graphmodal .graphbox svg{display:block}
+  .graphreadout{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink-dim);padding:6px 2px 10px}
+  .graphreadout .grtime{color:var(--ink);font-weight:600;min-width:46px}
+  .graphreadout b{color:var(--ink);font-weight:600}
+  .graphreadout .grw b{color:var(--go)}
   [data-graph]{cursor:crosshair}
 </style>
 
@@ -392,7 +422,7 @@
   var GUSTCOL="#f5b942";   // amber gust barbs shown on marker hover
 
   var state={ unit:"ms", caution:13.6, danger:21.4, active:"all", view:"map", sortKey:"custom", sortDir:1,
-    chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark", skin:"dark",
+    chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark", skin:"dark", showGusts:false, elevUnit:"m",
     barbScale:1, indicator:"barb", calmScale:1, sparkRange:12,
     camNames:{}, camOrder:[], camHidden:{},
     order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[] };
@@ -425,7 +455,8 @@
     if(typeof window!=="undefined" && window.storage){ try{ window.storage.set(key,JSON.stringify(val),false).catch(function(){}); }catch(e){} return; }
     try{ window.localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
   }
-  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden}); }
+  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden,showGusts:state.showGusts,elevUnit:state.elevUnit}); }
+  function elevStr(m){ if(m==null||m==="")return ""; return state.elevUnit==="ft"?(Math.round(m*3.28084)+"ft"):(m+"m"); }
   // Cross-device sync: pack lists + settings into a link (#sync=…). Opening that link on another
   // device imports them. Manual carry (no server) — this is the local-storage-per-device workaround.
   function b64enc(str){ return btoa(unescape(encodeURIComponent(str))); }
@@ -499,49 +530,82 @@
     var pts=series.map(function(v,i){ var x=pad+(i/(series.length-1))*(w-2*pad); var y=h-pad-((v-min)/rng)*(h-2*pad); return x.toFixed(1)+","+y.toFixed(1); }).join(" ");
     var lx=pad+(w-2*pad), ly=h-pad-((series[series.length-1]-min)/rng)*(h-2*pad);
     return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="2.2" fill="'+col+'"/></svg>'; }
-  // Full-graph popover shown when hovering a card/list sparkline: that station's own wind (solid,
-  // status-coloured) + gust (dashed grey) history, with caution/danger reference lines.
-  function hoverGraphSvg(s){
-    var u=UNIT_LABEL[state.unit];
-    var W=Math.min(380,(window.innerWidth||380)-40),H=196,mL=36,mR=12,mT=8,mB=20,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
-    var all=(s.hi&&s.hi.length)?s.hi:[];
-    var hd='<div class="hgttl">'+escapeHtml(s.name)+' <span>'+fmt(s.wind)+' '+u+' &middot; gust '+fmt(s.gust)+'</span></div>';
-    if(all.length<2) return hd+'<div class="hgno">no history yet</div>';
-    var since=all[0].t, now=all[all.length-1].t, span=(now-since)||1;
+  // Shared scrubbable history graph: wind (solid, status-coloured) + gust (dashed grey) over the last
+  // <span> h, even-hour ticks, caution/danger lines. Draws into `container`, returns an API to move a
+  // crosshair and read the nearest sample. Used by the map hover preview AND the big click-open graph.
+  function renderScrubGraph(container,s,W,H){
+    var spanH=state.sparkRange||12, cutoff=Date.now()-spanH*3600000;
+    var all=(s.hi||[]).filter(function(p){return p.t>=cutoff;});
+    if(all.length<2) all=(s.hi||[]).slice();
+    var mL=38,mR=12,mT=10,mB=22,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
+    if(all.length<2){ container.innerHTML='<div class="hgno" style="padding:16px 6px">no history yet</div>'; return null; }
+    var since=all[0].t,end=all[all.length-1].t,sp=(end-since)||1;
     var maxY=1; all.forEach(function(p){ var g=disp(p.gust); if(g>maxY)maxY=g; }); maxY*=1.12;
-    function X(t){ return x0+(t-since)/span*(x1-x0); }
+    function X(t){ return x0+(t-since)/sp*(x1-x0); }
     function Y(v){ return y1-(v/maxY)*(y1-y0); }
-    var svg='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">',i,v,y;
-    for(i=0;i<=3;i++){ v=maxY*i/3; y=Y(v); svg+='<line x1="'+x0+'" y1="'+y.toFixed(1)+'" x2="'+x1+'" y2="'+y.toFixed(1)+'" stroke="#22324a" stroke-width="1"/><text x="'+(x0-5)+'" y="'+(y+3).toFixed(1)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="10" text-anchor="end">'+(state.unit==="ms"?v.toFixed(0):Math.round(v))+'</text>'; }
-    [since,since+span/2,now].forEach(function(t){ var x=X(t),d=new Date(t); svg+='<text x="'+x.toFixed(1)+'" y="'+(y1+14)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="10" text-anchor="middle">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</text>'; });
-    var cD=knotsToDisp(state.caution), dD=knotsToDisp(state.danger);
+    var svg='<svg class="sg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="touch-action:none">',i,v,y;
+    for(i=0;i<=4;i++){ v=maxY*i/4; y=Y(v); svg+='<line x1="'+x0+'" y1="'+y.toFixed(1)+'" x2="'+x1+'" y2="'+y.toFixed(1)+'" stroke="var(--line)" stroke-width="1" opacity=".45"/><text x="'+(x0-5)+'" y="'+(y+3).toFixed(1)+'" fill="var(--ink-faint)" font-family="IBM Plex Mono" font-size="9.5" text-anchor="end">'+(state.unit==="ms"?v.toFixed(0):Math.round(v))+'</text>'; }
+    timeTicks(since,end).forEach(function(t){ var x=X(t),d=new Date(t); svg+='<line x1="'+x.toFixed(1)+'" y1="'+y0+'" x2="'+x.toFixed(1)+'" y2="'+y1+'" stroke="var(--line)" stroke-width="1" opacity=".22"/><text x="'+x.toFixed(1)+'" y="'+(y1+14)+'" fill="var(--ink-dim)" font-family="IBM Plex Mono" font-size="10" text-anchor="middle">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</text>'; });
+    var cD=knotsToDisp(state.caution),dD=knotsToDisp(state.danger);
     if(cD<=maxY) svg+='<line x1="'+x0+'" y1="'+Y(cD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(cD).toFixed(1)+'" stroke="var(--caution)" stroke-width="1" stroke-dasharray="4 4" opacity=".5"/>';
     if(dD<=maxY) svg+='<line x1="'+x0+'" y1="'+Y(dD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(dD).toFixed(1)+'" stroke="var(--danger)" stroke-width="1" stroke-dasharray="4 4" opacity=".5"/>';
-    function poly(key,dash,col){ var p=all.map(function(q){ return X(q.t).toFixed(1)+","+Y(disp(q[key])).toFixed(1); }).join(" "); return '<polyline points="'+p+'" fill="none" stroke="'+col+'" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"'+(dash?' stroke-dasharray="2 3"':'')+'/>'; }
-    var st=statusOf(s.wind), wc=st==="danger"?"var(--danger)":st==="caution"?"var(--caution)":"var(--go)";
-    svg+=poly("gust",true,"#8fa6bd")+poly("wind",false,wc)+'</svg>';
-    return hd+svg;
+    function poly(key,dash,col){ var p=all.map(function(q){ return X(q.t).toFixed(1)+","+Y(disp(q[key])).toFixed(1); }).join(" "); return '<polyline points="'+p+'" fill="none" stroke="'+col+'" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"'+(dash?' stroke-dasharray="2 3"':'')+'/>'; }
+    var stx=statusOf(s.wind),wc=stx==="danger"?"var(--danger)":stx==="caution"?"var(--caution)":"var(--go)";
+    svg+=poly("gust",true,"#8fa6bd")+poly("wind",false,wc);
+    svg+='<line class="gc" y1="'+y0+'" y2="'+y1+'" stroke="var(--accent)" stroke-width="1" opacity="0"/><circle class="gdg" r="3" fill="#8fa6bd" opacity="0"/><circle class="gdw" r="3.8" fill="'+wc+'" opacity="0"/>';
+    svg+='</svg>';
+    container.innerHTML=svg;
+    var svgEl=container.querySelector("svg.sg"),gc=container.querySelector(".gc"),gdw=container.querySelector(".gdw"),gdg=container.querySelector(".gdg");
+    function showAt(t){ var best=all[0],bd=1e18; all.forEach(function(p){ var d=Math.abs(p.t-t); if(d<bd){bd=d;best=p;} }); var bx=X(best.t);
+      gc.setAttribute("x1",bx.toFixed(1)); gc.setAttribute("x2",bx.toFixed(1)); gc.setAttribute("opacity",".85");
+      gdw.setAttribute("cx",bx.toFixed(1)); gdw.setAttribute("cy",Y(disp(best.wind)).toFixed(1)); gdw.setAttribute("opacity","1");
+      gdg.setAttribute("cx",bx.toFixed(1)); gdg.setAttribute("cy",Y(disp(best.gust)).toFixed(1)); gdg.setAttribute("opacity","1"); return best; }
+    return { svgEl:svgEl, W:W, x0:x0, x1:x1, since:since, sp:sp,
+      scrubClientX:function(cx){ var r=svgEl.getBoundingClientRect(); var px=Math.max(x0,Math.min(x1,(cx-r.left)*(W/(r.width||W)))); return showAt(since+(px-x0)/(x1-x0)*sp); },
+      scrubFrac:function(f){ f=f<0?0:f>1?1:f; return showAt(since+f*sp); } };
   }
+  function readoutHtml(best,u){ var d=new Date(best.t); return '<span class="grtime">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</span><span class="grw wind">wind <b>'+fmt(best.wind)+'</b> '+u+'</span><span class="grg">gust <b>'+fmt(best.gust)+'</b> '+u+'</span>'; }
   function wireHoverGraph(){
     var hg=document.getElementById("hoverGraph"); if(!hg)return;
-    function pos(e){ var w=hg.offsetWidth||390,h=hg.offsetHeight||210; var x=e.clientX+16,y=e.clientY+16;
-      if(x+w>window.innerWidth-8)x=e.clientX-w-16; if(x<8)x=8;
-      if(y+h>window.innerHeight-8)y=e.clientY-h-16; if(y<8)y=8;
-      hg.style.left=x+"px"; hg.style.top=y+"px"; }
-    document.addEventListener("mouseover",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var s=byId(g.getAttribute("data-graph")); if(!s)return; hg.innerHTML=hoverGraphSvg(s); hg.style.display="block"; pos(e); });
-    document.addEventListener("mousemove",function(e){ if(hg.style.display!=="block")return; var g=e.target.closest&&e.target.closest("[data-graph]"); if(g)pos(e); else hg.style.display="none"; });
-    document.addEventListener("mouseout",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var to=e.relatedTarget; if(to&&to.closest&&to.closest("[data-graph]")===g)return; hg.style.display="none"; });
-    // Touch (no hover): tap a sparkline to open its full graph; tap elsewhere to dismiss.
-    if(window.matchMedia && window.matchMedia("(hover: none)").matches){
-      document.addEventListener("click",function(e){
-        var g=e.target.closest&&e.target.closest("[data-graph]");
-        if(g){ var s=byId(g.getAttribute("data-graph")); if(s){ hg.innerHTML=hoverGraphSvg(s); hg.style.display="block"; var r=g.getBoundingClientRect(), w=hg.offsetWidth||Math.min(360,window.innerWidth-16); var x=Math.max(8,Math.min(window.innerWidth-w-8, r.left)); var y=r.bottom+8; if(y+ (hg.offsetHeight||210) > window.innerHeight-8) y=Math.max(8, r.top-(hg.offsetHeight||210)-8); hg.style.left=x+"px"; hg.style.top=y+"px"; e.stopPropagation(); return; } }
-        if(hg.style.display==="block") hg.style.display="none";
-      });
-    }
+    var api=null, curEl=null;
+    function place(el){ var r=el.getBoundingClientRect(), w=hg.offsetWidth||400, h=hg.offsetHeight||220; var x=r.left; if(x+w>window.innerWidth-8)x=window.innerWidth-w-8; if(x<8)x=8; var y=r.top-h-10; if(y<8)y=r.bottom+10; hg.style.left=x+"px"; hg.style.top=y+"px"; }
+    document.addEventListener("mouseover",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var s=byId(g.getAttribute("data-graph")); if(!s)return;
+      hg.innerHTML='<div class="hgttl">'+escapeHtml(s.name)+'</div><div class="graphreadout hgread" id="hgRead"><span class="grtime">move across the mini-graph &rarr;</span></div><div class="hgbox" id="hgBox"></div>';
+      hg.style.display="block";
+      api=renderScrubGraph(document.getElementById("hgBox"), s, Math.min(440,(window.innerWidth||440)-24), 194); curEl=g; place(g); });
+    document.addEventListener("mousemove",function(e){ if(hg.style.display!=="block")return; var g=e.target.closest&&e.target.closest("[data-graph]"); if(g&&g===curEl&&api){ var r=g.getBoundingClientRect(); var best=api.scrubFrac((e.clientX-r.left)/(r.width||1)); var ro=document.getElementById("hgRead"); if(best&&ro)ro.innerHTML=readoutHtml(best,UNIT_LABEL[state.unit]); } else if(!g){ hg.style.display="none"; api=null; curEl=null; } });
+    document.addEventListener("mouseout",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var to=e.relatedTarget; if(to&&to.closest&&to.closest("[data-graph]")===g)return; hg.style.display="none"; api=null; curEl=null; });
+    // Click/tap a sparkline (list or card) to open the big scrubbable history graph.
+    document.addEventListener("click",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; hg.style.display="none"; e.stopPropagation(); openGraph(g.getAttribute("data-graph")); });
   }
-  function badge(s){ return s.real?'<span class="live">LIVE</span>':'<span class="samp">sample</span>'; }
+  // Big scrubbable single-station history graph (opens in the modal). Move across it to read
+  // the wind + gust at any time in the last <span> hours.
+  function openGraph(id){
+    var s=byId(id); if(!s)return;
+    var modal=document.getElementById("modal"); modal.className="modal graphmodal";
+    var u=UNIT_LABEL[state.unit], spanH=state.sparkRange||12;
+    modal.innerHTML='<div class="mhead"><h3>'+escapeHtml(s.name)+' <span class="ghspan">last '+spanH+' h</span></h3><button class="close" data-close="1">✕</button></div>'
+      +'<div class="graphreadout" id="graphReadout"><span class="grtime">move across →</span><span class="grw wind">wind –</span><span class="grg">gust –</span></div>'
+      +'<div class="graphbox" id="graphBox"></div>';
+    document.getElementById("overlay").classList.add("open");
+    var box=document.getElementById("graphBox");
+    var W=Math.max(280,Math.min(760,(box.clientWidth||window.innerWidth-48)));
+    var H=Math.max(210,Math.min(360,Math.round((window.innerHeight||600)*0.44)));
+    var api=renderScrubGraph(box,s,W,H); if(!api)return;
+    var readout=document.getElementById("graphReadout");
+    function upd(best){ if(best&&readout)readout.innerHTML=readoutHtml(best,u); }
+    api.svgEl.style.cursor="crosshair";
+    api.svgEl.addEventListener("pointermove",function(e){ upd(api.scrubClientX(e.clientX)); });
+    api.svgEl.addEventListener("pointerdown",function(e){ upd(api.scrubClientX(e.clientX)); });
+  }
+  // Freshness by station age: live <1h, "not live" (orange) 1–24h, offline (red) >24h.
+  function freshTier(s){ if(!s.real)return "sample"; var a=ageMinOf(s); if(a==null)return "live"; if(a>1440)return "offline"; if(a>60)return "old"; return "live"; }
+  function badge(s){ var t=freshTier(s); if(t==="sample")return '<span class="samp">sample</span>'; if(t==="offline")return '<span class="boff">OFFLINE</span>'; if(t==="old")return '<span class="bstale">NOT&nbsp;LIVE</span>'; return '<span class="live">LIVE</span>'; }
+  // Even-hour-aligned time ticks across [since,end] for the history graphs.
+  function timeTicks(since,end){ var span=end-since; var stepH=span<=3*3600000?1:span<=16*3600000?2:4; var step=stepH*3600000; var d=new Date(since); d.setMinutes(0,0,0); d.setHours(d.getHours()-(d.getHours()%stepH)); var t=d.getTime(); if(t<since)t+=step; var out=[]; for(;t<=end && out.length<24;t+=step)out.push(t); if(!out.length)out.push(since,end); return out; }
   function srcTag(s,cls){ if(s.web) return '<a class="'+cls+'" href="'+s.web+'" target="_blank" rel="noopener">'+s.src+'</a>'; return '<span class="'+cls+'">'+s.src+'</span>'; }
+  // Station title links to its source (skytech/ARSO/…) instead of a separate source button.
+  function nameLink(s,cls){ cls=cls||"name"; if(s.web) return '<a class="'+cls+'" href="'+s.web+'" target="_blank" rel="noopener" title="Source: '+escapeHtml(s.src||"")+'">'+escapeHtml(s.name)+'</a>'; return '<span class="'+cls+'">'+escapeHtml(s.name)+'</span>'; }
   function popHtml(s){
     var rows=state.lists.map(function(l){ var checked=inList(l,s.id)?"checked":""; var icon=l.builtin?"\u2605 ":""; return '<label class="opt"><input type="checkbox" data-toggle="'+l.id+'" '+checked+'>'+icon+escapeHtml(l.name)+'</label>'; }).join("");
     return '<div class="pop" data-pop="'+s.id+'"><h4>Add to lists</h4>'+rows+'<div class="div"></div><div class="newrow"><input placeholder="New list\u2026" data-popnew="'+s.id+'"><button data-popadd="'+s.id+'">Add</button></div></div>'; }
@@ -571,11 +635,11 @@
     var ser=sparkSeries(s), mn=Math.min.apply(null,ser), mx=Math.max.apply(null,ser);
     return '<div class="card" data-id="'+s.id+'" draggable="true"><div class="head"><div>'+
       '<div class="nrow"><span class="drag" title="Drag to reorder">\u2630</span>'+
-      '<span class="name">'+escapeHtml(s.name)+'</span>'+srcTag(s,"src")+badge(s)+gustyChip(s)+'<span class="elev">'+s.elev+'\u2009m</span></div></div>'+
+      nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+badge(s)+'<span class="upd">'+updatedStr(s)+'</span></div></div>'+
       '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'<button class="mini" data-lists="'+s.id+'">\u2630 Lists</button></div></div>'+
       '<div class="cbody"><div class="cinfo">'+compassSvg(s.dir)+
       '<div><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span>'+trendChip(s)+'<span class="dir-inline">from '+Math.round(s.dir)+'\u00b0 '+compass(s.dir)+'</span></div>'+
-      '<div class="ministats">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+' &middot; '+s.temp+'\u00b0 &middot; upd '+updatedStr(s)+'</div></div></div>'+
+      '<div class="ministats">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+' &middot; '+s.temp+'\u00b0</div></div></div>'+
       '<div class="cchart" data-graph="'+s.id+'" title="hover for full graph">'+sparkSvg(ser,st,132,40)+'<div class="sparklab">'+(state.sparkRange||12)+'&#8202;h &middot; min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
       (openPop===s.id?popHtml(s):"")+'</div>'; }
   function renderCards(vis){
@@ -591,21 +655,21 @@
   function renderTable(vis){
     var u=UNIT_LABEL[state.unit];
     var custOn=state.sortKey==="custom";
-    document.getElementById("thead").innerHTML='<tr><th class="'+(custOn?"sorted":"")+'" data-sort="custom" title="your order">#</th>'+COLS.map(function(c){ var on=state.sortKey===c.key; var ar=on?(state.sortDir<0?'\u25bc':'\u25b2'):''; return '<th class="'+(on?"sorted":"")+'" data-sort="'+c.key+'">'+c.label+' <span class="ar">'+ar+'</span></th>'; }).join("")+'<th>12&#8202;h</th><th title="show on map">Map</th></tr>';
+    document.getElementById("thead").innerHTML='<tr><th class="rdh'+(custOn?" sorted":"")+'" data-sort="custom" title="your order (drag rows to change)"></th>'+COLS.map(function(c){ var on=state.sortKey===c.key; var ar=on?(state.sortDir<0?'\u25bc':'\u25b2'):''; return '<th class="'+(on?"sorted":"")+'" data-sort="'+c.key+'">'+c.label+' <span class="ar">'+ar+'</span></th>'; }).join("")+'<th>'+(state.sparkRange||12)+'&#8202;h</th></tr>';
     var rows=vis.slice();
     if(!custOn){ rows.sort(function(a,b){ var av=sortVal(a,state.sortKey),bv=sortVal(b,state.sortKey); if(av<bv)return -1*state.sortDir; if(av>bv)return 1*state.sortDir; return 0; }); }
     var tb=document.getElementById("tbody");
-    if(!rows.length){ tb.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
     tb.innerHTML=rows.map(function(s){ var ws=statusOf(s.wind), gs=statusOf(s.gust); var pos=state.order.indexOf(s.id)+1; var shown=!state.mapHidden[s.id];
-      return '<tr data-id="'+s.id+'"><td><input class="ordin" type="number" min="1" value="'+pos+'" data-ord="'+s.id+'"></td>'+
-        '<td class="name">'+escapeHtml(s.name)+badge(s)+srcTag(s,"srcmini")+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
+      return '<tr data-id="'+s.id+'"><td class="rowdrag" data-rowdrag="'+s.id+'" title="Drag to reorder">☰</td>'+
+        '<td class="name">'+nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+badge(s)+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
         '<td>'+dirMini(s.dir)+'</td>'+
         '<td class="w-'+ws+'">'+fmt(s.wind)+' '+u+' '+trendChip(s)+'</td>'+
         '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+(isGusty(s)?' <span class="gusty sm" title="gusty">GUSTY</span>':'')+'</td>'+
         '<td>'+s.temp+'\u00b0</td>'+
         '<td>'+updatedStr(s)+'</td>'+
         '<td class="spark" data-graph="'+s.id+'" title="hover for full graph">'+sparkSvg(sparkSeries(s),ws,84,22)+'</td>'+
-        '<td><span class="eye '+(shown?"":"off")+'" data-eye="'+s.id+'" title="'+(shown?"shown on map":"hidden from map")+'">'+(shown?"\u25c9":"\u25cb")+'</span></td></tr>'; }).join("");
+        '</tr>'; }).join("");
   }
 
   // ---- chart view ----
@@ -681,7 +745,46 @@
   // failure the <img> onerror handler falls back to the direct raw URL once.
   function camSrc(path,w){ var raw=LIVE_BASE+path; return "https://wsrv.nl/?url="+encodeURIComponent(raw)+"&output=jpg&maxage=1d"+(w?("&w="+w+"&fit=cover&we"):""); }
   function camImgErr(el){ if(el.getAttribute("data-fb")){ el.style.display="none"; return; } el.setAttribute("data-fb","1"); var p=el.getAttribute("data-raw"); if(p) el.src=p; else el.style.display="none"; }
+  // Display-side grey guard: a frame that arrives half-loaded renders as a flat mid-grey band along
+  // the bottom. Detect that on load (via a tiny canvas sample) and re-fetch the frame once, cache-busted.
+  function camImgLoad(el){ try{
+    if(el.getAttribute("data-greychk"))return;
+    var w=40, nh=el.naturalHeight||9, nw=el.naturalWidth||16, h=Math.max(8,Math.round(w*nh/nw));
+    var cv=camImgLoad._cv||(camImgLoad._cv=document.createElement("canvas")); cv.width=w; cv.height=h;
+    var cx=cv.getContext("2d"); cx.drawImage(el,0,0,w,h);
+    var y0=Math.floor(h*0.62), d=cx.getImageData(0,y0,w,h-y0).data, sum=0, vals=[];
+    for(var i=0;i<d.length;i+=4){ var L=(d[i]+d[i+1]+d[i+2])/3; vals.push(L); sum+=L; }
+    var mean=sum/vals.length, vc=0; vals.forEach(function(v){ vc+=(v-mean)*(v-mean); }); var sd=Math.sqrt(vc/vals.length);
+    if(sd<5 && mean>80 && mean<190){ // flat mid-grey band = truncated/bad delivery → re-fetch once
+      if(el.getAttribute("data-greyretry")){ el.setAttribute("data-greychk","1"); return; }
+      el.setAttribute("data-greyretry","1");
+      var raw=el.getAttribute("data-raw"); if(!raw){ el.setAttribute("data-greychk","1"); return; }
+      var cb=raw+(raw.indexOf("?")<0?"?":"&")+"cb="+Date.now();
+      el.src="https://wsrv.nl/?url="+encodeURIComponent(cb)+"&output=jpg"+(el.classList.contains("pic")?"&w=480&fit=cover&we":"")+"&maxage=1d";
+    } else { el.setAttribute("data-greychk","1"); }
+  }catch(e){ el.setAttribute("data-greychk","1"); } }
+  window.camImgErr=camImgErr; window.camImgLoad=camImgLoad;   // inline on* handlers run in global scope
+  // BULLETPROOF cam image loading: fetch the frame's bytes (via wsrv, CORS-enabled), verify it's a
+  // COMPLETE jpeg (SOI…EOI) before showing it as a blob. A truncated/half-grey delivery fails the
+  // check and is retried cache-busted — a partial frame can never reach the screen. Stored frames
+  // are already verified clean, so the grey only ever came from delivery; this closes that path.
+  function camWsrv(path,w,bust){ var raw=LIVE_BASE+path+(bust?((LIVE_BASE+path).indexOf("?")<0?"?":"&")+"cb="+bust:""); return "https://wsrv.nl/?url="+encodeURIComponent(raw)+"&output=jpg"+(w?("&w="+w+"&fit=cover&we"):"")+"&maxage=1d"; }
+  function jpegOk(b){ if(b.length<2500||b[0]!==0xFF||b[1]!==0xD8)return false; for(var i=b.length-2;i>=Math.max(2,b.length-64);i--){ if(b[i]===0xFF&&b[i+1]===0xD9)return true; } return false; }
+  function loadCamPic(imgEl,path,w){ if(!imgEl||!path)return; var token=(imgEl._tok=(imgEl._tok||0)+1), tries=0;
+    function attempt(){ if(imgEl._tok!==token)return; tries++;
+      fetch(camWsrv(path,w,tries>1?(Date.now()+"_"+tries):0),{cache:tries>1?"reload":"default"})
+        .then(function(r){ if(!r.ok)throw 0; return r.arrayBuffer(); })
+        .then(function(ab){ if(imgEl._tok!==token)return; var b=new Uint8Array(ab);
+          if(jpegOk(b)){ var old=imgEl._blob; var url=URL.createObjectURL(new Blob([ab],{type:"image/jpeg"})); imgEl._blob=url; imgEl.style.display=""; imgEl.src=url; if(old)try{URL.revokeObjectURL(old);}catch(_){} }
+          else if(tries<6){ setTimeout(attempt,250*tries); } else { imgEl.style.display="none"; } })
+        .catch(function(){ if(imgEl._tok===token){ if(tries<6)setTimeout(attempt,250*tries); else imgEl.style.display="none"; } });
+    }
+    attempt();
+  }
+  function hydrateCamPics(root){ (root||document).querySelectorAll(".pic[data-path]").forEach(function(el){ loadCamPic(el, el.getAttribute("data-path"), +el.getAttribute("data-w")||0); }); }
   var CAMS_LATEST=[], CAM_MANIFEST=null, scrub={id:null,frames:[],i:0,playing:false,timer:null};
+  // Verified cam altitudes (m) — shown after the name. Blank where not confirmed. (JB can correct.)
+  var CAM_ALT={ s53_bovec:460, s53_kanin:2200, s53_stol:1600, s53_stoln:1600, s53_kuk:1100, s53_crnaprst:1770, arso_kredarica_e:2514, arso_kredarica_se:2514, dars_predel:1156, si_logmangart01:650, windy_bovec_e:460, windy_bovec_w:460, bfx_kanin_skalar:2260, bfx_kanin_sedlo:2260 };
 
   function renderCams(){
     var note=document.getElementById("camnote"); if(note)note.hidden=true;
@@ -708,7 +811,7 @@
   }
   function camTile(c){
     var nm=camName(c), frames=camFramesFor(c.id);
-    var img=c.latest?('<img class="pic" data-pic="'+c.id+'" loading="lazy" src="'+camSrc(c.latest,480)+'" data-raw="'+LIVE_BASE+c.latest+'" alt="'+escapeHtml(nm)+'" onerror="camImgErr(this)">'):'<div class="ph">no frame yet</div>';
+    var img=c.latest?('<img class="pic" data-pic="'+c.id+'" data-path="'+c.latest+'" data-w="480" loading="lazy" alt="'+escapeHtml(nm)+'">'):'<div class="ph">no frame yet</div>';
     var tl = frames.length>1
       ? '<div class="tlrow"><input type="range" class="tlslider" draggable="false" data-tl="'+c.id+'" min="0" max="'+(frames.length-1)+'" value="'+(frames.length-1)+'"><span class="tlt" data-tlt="'+c.id+'">'+fmtClock(frames[frames.length-1].t)+' · now</span></div>'
       : '';
@@ -716,7 +819,7 @@
       '<div class="camframe2">'+img+'<div class="hovname">'+escapeHtml(nm)+'</div>'+
         '<div class="tbtns"><span class="tbtn camdrag" data-camdrag="'+c.id+'" title="Drag to reorder">⠿</span><button class="tbtn" data-hide="'+c.id+'" title="Hide cam">✕</button></div></div>'+
       tl+
-      '<div class="cap"><div><div class="nm" data-camname="'+c.id+'" title="Double-click to rename">'+escapeHtml(nm)+'</div><div class="ar">'+escapeHtml(c.area||'')+'</div></div>'+
+      '<div class="cap"><div class="nm" data-camname="'+c.id+'" title="Double-click to rename">'+escapeHtml(nm)+(CAM_ALT[c.id]?' <span class="camalt">'+elevStr(CAM_ALT[c.id])+'</span>':'')+'</div>'+
       (c.t?'<span class="live">'+camAge(c.t)+'</span>':'<span class="live off">offline</span>')+'</div></div>';
   }
   function paintCamGrid(){
@@ -730,6 +833,7 @@
     if(inactive.length) html+='<div class="camdivider">Inactive / offline</div>'+inactive.map(camTile).join("");
     if(hidden.length) html+='<div class="camhidden">Hidden: '+hidden.map(function(c){ return '<span class="chip" data-unhide="'+c.id+'">'+escapeHtml(camName(c))+' ↩</span>'; }).join("")+'</div>';
     grid.innerHTML=html+'</div>';
+    hydrateCamPics(grid);
   }
   function camAge(t){ var m=Math.round((Date.now()-t)/60000); if(m<=2)return'● LIVE'; return (m<60?m+'m':Math.round(m/60)+'h')+' ago'; }
   function startCamRename(id){
@@ -750,15 +854,15 @@
     document.getElementById("modal").className="modal cammodal";
     document.getElementById("modal").innerHTML=
       '<div class="mhead"><h3>'+escapeHtml(c.name)+' <span style="color:var(--ink-faint);font-weight:400;font-size:13px">· '+escapeHtml(c.area)+'</span></h3><button class="close" data-close="1">✕</button></div>'+
-      '<div class="camframe big"><img id="scrubImg" src="'+(c.latest?camSrc(c.latest):'')+'" data-raw="'+(c.latest?LIVE_BASE+c.latest:'')+'" onerror="camImgErr(this)" alt="'+escapeHtml(c.name)+'"><div class="scrubtime" id="scrubTime">loading…</div></div>'+
+      '<div class="camframe big"><img id="scrubImg" alt="'+escapeHtml(c.name)+'"><div class="scrubtime" id="scrubTime">loading…</div></div>'+
       '<div class="scrubbar">'+
         '<button class="sbtn" id="scrubPlay" title="Play timelapse">▶</button>'+
         '<input type="range" id="scrubSlider" min="0" max="0" value="0" step="1">'+
         '<button class="sbtn" id="scrubLive" title="Jump to now">live</button>'+
-      '</div>'+
-      '<div class="src" id="scrubMeta">24-hour timelapse · loading frames…</div>';
+      '</div>';
     document.getElementById("overlay").classList.add("open");
     scrub={id:id,frames:[],i:0,playing:false,timer:null};
+    if(c.latest) loadCamPic(document.getElementById("scrubImg"), c.latest, 0);
     wireScrub();
     loadScrubFrames(id);
   }
@@ -781,7 +885,7 @@
   function spanHrs(frames){ if(frames.length<2)return'—'; var h=(frames[frames.length-1].t-frames[0].t)/3600000; return h>=1?h.toFixed(1)+'h':Math.round(h*60)+'m'; }
   function showScrub(i){
     var f=scrub.frames[i]; if(!f)return;
-    var img=document.getElementById("scrubImg"); if(img){ img.removeAttribute("data-fb"); img.setAttribute("data-raw",LIVE_BASE+f.f); img.src=camSrc(f.f); }
+    var img=document.getElementById("scrubImg"); if(img) loadCamPic(img,f.f,0);
     var t=document.getElementById("scrubTime"); if(t)t.textContent=fmtClock(f.t)+(i===scrub.frames.length-1?' · newest':'');
   }
   function fmtClock(epoch){ var d=new Date(epoch); return d.toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'}); }
@@ -817,6 +921,9 @@
   }
   function windMarkerHtml(s){
     var kt=knots(s.wind), gkt=knots(s.gust), calm=kt<2.5, col=barbColors();
+    var mtier=freshTier(s);
+    if(mtier==="old") col={fg:"#f2a63d",halo:col.halo};      // stale >1h → orange barb
+    else if(mtier==="offline") col={fg:"#f2564a",halo:col.halo}; // >24h → red barb
     var isArrow=(state.indicator==="arrow");
     var ind=isArrow?arrowGroup(kt,col.fg,col.halo):barbGroup(kt,col.fg,col.halo);
     // Gust barbs (amber) sit behind the wind barb; the extra gust feathers stick out past the
@@ -825,7 +932,8 @@
     var r=(calm?5.2*(state.calmScale||1):2.6*(state.barbScale||1));
     var ring='<circle cx="0" cy="0" r="'+r.toFixed(1)+'" fill="'+col.halo+'" stroke="'+col.halo+'" stroke-width="2.8"/><circle cx="0" cy="0" r="'+r.toFixed(1)+'" fill="none" stroke="'+col.fg+'" stroke-width="'+(calm?1.6:1.2)+'"/>';
     var svg='<svg width="60" height="62" viewBox="0 0 60 62" style="overflow:visible"><g transform="translate(30,34)"><g transform="rotate('+s.dir+')">'+(calm?"":gustInd)+(calm?"":ind)+'</g>'+ring+'</g></svg>';
-    return '<div class="wm">'+svg+'<div class="wm-name">'+escapeHtml(s.name)+'</div></div>';
+    var sg=state.showGusts?" sg":"", off=mtier==="offline"?" offline":"";
+    return '<div class="wm'+sg+off+'">'+svg+'<div class="wm-name">'+escapeHtml(s.name)+'</div></div>';
   }
   function windIcon(s){ return L.divIcon({className:"",iconSize:[60,62],iconAnchor:[30,34],popupAnchor:[0,-30],html:windMarkerHtml(s)}); }
   function dodgeMarkers(){
@@ -914,7 +1022,8 @@
         '<div class="setrow"><label>Wind indicator</label><div class="seg" id="indSeg"><button data-ind="barb" class="'+(state.indicator!=="arrow"?"on":"")+'">Barbs</button><button data-ind="arrow" class="'+(state.indicator==="arrow"?"on":"")+'">Arrows</button></div></div>'+
         '<div class="setrow"><label>Indicator size</label><input type="range" id="setBarb" min="0.6" max="1.8" step="0.1" value="'+(state.barbScale||1)+'"><span class="setval" id="setBarbV">'+(state.barbScale||1).toFixed(1)+'×</span></div>'+
         '<div class="setrow"><label>Calm-circle size</label><input type="range" id="setCalm" min="0.6" max="2" step="0.1" value="'+(state.calmScale||1)+'"><span class="setval" id="setCalmV">'+(state.calmScale||1).toFixed(1)+'×</span></div>'+
-        '<div class="setrow"><label>Unit</label><div class="seg" id="setUnit"><button data-u="kn">kt</button><button data-u="ms">m/s</button><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div></div>'+
+        '<div class="setrow"><label>Wind unit</label><div class="seg" id="setUnit"><button data-u="kn">kt</button><button data-u="ms">m/s</button><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div></div>'+
+        '<div class="setrow"><label>Height</label><div class="seg" id="setElev"><button data-e="m">m</button><button data-e="ft">ft</button></div></div>'+
         '<div class="setrow"><label id="setCautionLbl">Caution ≥ ('+u+')</label><input class="num" id="setCaution" type="number" min="0" step="0.5" value="'+threshFmt(state.caution)+'"></div>'+
         '<div class="setrow"><label id="setDangerLbl">Danger ≥ ('+u+')</label><input class="num" id="setDanger" type="number" min="0" step="0.5" value="'+threshFmt(state.danger)+'"></div>'+
         '<div class="setrow"><label>Graph span</label><div class="seg" id="setSpark"><button data-sr="2">2h</button><button data-sr="6">6h</button><button data-sr="12">12h</button><button data-sr="24">24h</button></div></div>'+
@@ -935,7 +1044,8 @@
     var sc2=document.getElementById("setCaution"); sc2.addEventListener("change",function(){ state.caution=dispToKnots(+sc2.value||0); persist(); refreshThreshUI(); render(); });
     var sd=document.getElementById("setDanger"); sd.addEventListener("change",function(){ state.danger=dispToKnots(+sd.value||0); persist(); refreshThreshUI(); render(); });
     document.getElementById("setBasemap").addEventListener("change",function(e){ setBasemap(e.target.value,true); });
-    setSeg("setUnit","data-u",state.unit); setSeg("setSpark","data-sr",state.sparkRange);
+    setSeg("setUnit","data-u",state.unit); setSeg("setSpark","data-sr",state.sparkRange); setSeg("setElev","data-e",state.elevUnit);
+    document.getElementById("setElev").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.elevUnit=b.getAttribute("data-e"); setSeg("setElev","data-e",state.elevUnit); persist(); render(); });
     function setThreshLabels(){ var uu=UNIT_LABEL[state.unit], cl=document.getElementById("setCautionLbl"), dl=document.getElementById("setDangerLbl"), sc=document.getElementById("setCaution"), sd=document.getElementById("setDanger"); if(cl)cl.textContent="Caution ≥ ("+uu+")"; if(dl)dl.textContent="Danger ≥ ("+uu+")"; if(sc)sc.value=threshFmt(state.caution); if(sd)sd.value=threshFmt(state.danger); }
     document.getElementById("setUnit").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.unit=b.getAttribute("data-u"); setSeg("setUnit","data-u",state.unit); persist(); refreshThreshUI(); setThreshLabels(); render(); });
     document.getElementById("setSpark").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.sparkRange=+b.getAttribute("data-sr"); setSeg("setSpark","data-sr",state.sparkRange); persist(); if(state.view==="map"||state.view==="list")render(); });
@@ -973,7 +1083,7 @@
     cg.addEventListener("input",function(e){
       var s=e.target.closest(".tlslider"); if(!s)return;
       var id=s.getAttribute("data-tl"), frames=camFramesFor(id), f=frames[+s.value]; if(!f)return;
-      var img=cg.querySelector('.pic[data-pic="'+id+'"]'); if(img){ img.style.display=""; img.removeAttribute("data-fb"); img.setAttribute("data-raw",LIVE_BASE+f.f); img.src=camSrc(f.f,480); }
+      var img=cg.querySelector('.pic[data-pic="'+id+'"]'); if(img) loadCamPic(img,f.f,480);
       var t=cg.querySelector('.tlt[data-tlt="'+id+'"]'); if(t)t.textContent=fmtClock(f.t)+((+s.value===frames.length-1)?' · now':'');
     });
     cg.addEventListener("dblclick",function(e){ var n=e.target.closest("[data-camname]"); if(n){ e.preventDefault(); startCamRename(n.getAttribute("data-camname")); } });
@@ -1019,18 +1129,27 @@
       var cm=e.target.closest("[data-cam]"); if(cm){ openCams(cm.getAttribute("data-cam")); return; }
       var ey=e.target.closest("[data-eye]"); if(ey){ var id=ey.getAttribute("data-eye"); state.mapHidden[id]=!state.mapHidden[id]; persist(); renderTable(visibleStations()); return; }
     });
-    lv.addEventListener("change",function(e){ var oi=e.target.closest("[data-ord]"); if(oi){ reorder(oi.getAttribute("data-ord"), parseInt(oi.value,10)||1); } });
+    // List rows reorder by dragging the ☰ handle (row is only draggable while the handle is held).
+    var tb=document.getElementById("tbody"), rowDragId=null;
+    function clearRowDrag(){ var d=tb.querySelector('tr[draggable="true"]'); if(d)d.removeAttribute("draggable"); }
+    tb.addEventListener("mousedown",function(e){ clearRowDrag(); var h=e.target.closest("[data-rowdrag]"); if(!h)return; var tr=e.target.closest("tr"); if(tr)tr.setAttribute("draggable","true"); });
+    document.addEventListener("mouseup",function(){ clearRowDrag(); });
+    tb.addEventListener("dragstart",function(e){ var tr=e.target.closest('tr[draggable="true"]'); if(!tr){ e.preventDefault(); return; } rowDragId=tr.getAttribute("data-id"); tr.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",rowDragId);}catch(_){} });
+    tb.addEventListener("dragover",function(e){ e.preventDefault(); });
+    tb.addEventListener("drop",function(e){ e.preventDefault(); var tr=e.target.closest("tr"); if(!rowDragId||!tr)return; var tgt=tr.getAttribute("data-id"); if(tgt&&tgt!==rowDragId)reorderStation(rowDragId,tgt); });
+    tb.addEventListener("dragend",function(){ rowDragId=null; clearRowDrag(); var d=tb.querySelector(".dragging"); if(d)d.classList.remove("dragging"); });
 
     document.addEventListener("click",function(e){ if(openPop && !e.target.closest(".pop") && !e.target.closest("[data-lists]")){ openPop=null; render(); } });
     wireHoverGraph();
   }
 
-  function initMap(){ map=L.map("map",{zoomControl:true,zoomSnap:0,zoomDelta:0.5,wheelPxPerZoomLevel:120,wheelDebounceTime:30,zoomAnimation:true}).setView([46.31,13.62],10);
+  function initMap(){ map=L.map("map",{zoomControl:true}).setView([46.31,13.62],10);
     setBasemap(state.basemap,false);
     var ctrl=L.control({position:"topright"});
-    ctrl.onAdd=function(){ var d=L.DomUtil.create("div","map-ctrl"); d.innerHTML='<select id="basemapSel"><option value="light">Light</option><option value="terrain">Terrain</option><option value="satellite">Satellite</option><option value="dark">Dark</option></select>'; L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d); return d; };
+    ctrl.onAdd=function(){ var d=L.DomUtil.create("div","map-ctrl"); d.innerHTML='<select id="basemapSel"><option value="light">Light</option><option value="terrain">Terrain</option><option value="satellite">Satellite</option><option value="dark">Dark</option></select><button id="gustToggle" class="gswitch'+(state.showGusts?" on":"")+'" role="switch" aria-label="Show gusts"><span class="knob"></span>Gusts</button>'; L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d); return d; };
     ctrl.addTo(map);
     var sel=document.getElementById("basemapSel"); if(sel){ sel.value=state.basemap; sel.addEventListener("change",function(e){ setBasemap(e.target.value,true); }); }
+    var gt=document.getElementById("gustToggle"); if(gt){ gt.addEventListener("click",function(){ state.showGusts=!state.showGusts; gt.classList.toggle("on",state.showGusts); persist(); if(state.view==="map")renderMarkers(visibleStations()); }); }
     setTimeout(function(){ map.invalidateSize(); },200); window.addEventListener("resize",function(){ if(map)map.invalidateSize(); }); }
 
   // ---- live data.json loading + fallback ----
@@ -1065,8 +1184,11 @@
     if(stale && (!DATA_META.model || (Date.now()-DATA_META.model.t)>5*60000)){ fetchModel().then(updateStaleUI); }
     updateStaleUI();
   }
+  var NAME_FIX={ "Srednji vrh (Matajur)":"Matajur" };
+  var DROP_IDS={ arso_vogel:1 };   // duplicate of the skytech Vogel launch — hidden per JB
   function ingest(arr){
-    arr.forEach(function(s){ if(!s.series||!s.series.length){ s.series=(s.rw&&s.rw.length)?s.rw.slice(-12):[s.wind||0,s.wind||0]; } genHi(s); });
+    arr=arr.filter(function(s){ return !DROP_IDS[s.id]; });
+    arr.forEach(function(s){ if(NAME_FIX[s.name])s.name=NAME_FIX[s.name]; s.name=s.name.replace(/\s*\(ARSO\)\s*$/,""); if(!s.series||!s.series.length){ s.series=(s.rw&&s.rw.length)?s.rw.slice(-12):[s.wind||0,s.wind||0]; } genHi(s); });
     STATIONS=arr;
     var ids=STATIONS.map(function(s){return s.id;});
     var kept=state.order.filter(function(id){return ids.indexOf(id)>=0;});
@@ -1090,7 +1212,7 @@
     Promise.all([loadStore("pmw_lists"),loadStore("pmw_settings")]).then(function(v){
       if(v[0]&&v[0].length){ state.lists=v[0].filter(function(l){return l.id!=="fav";}); }
       if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir;
-        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; }
+        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; if(typeof q.showGusts==="boolean")state.showGusts=q.showGusts; if(q.elevUnit)state.elevUnit=q.elevUnit; }
       applySyncHash();   // a #sync=… link (opened on this device) overrides local settings + imports lists
       applySkin(state.skin);
       setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("botnav","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
