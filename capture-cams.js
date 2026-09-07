@@ -46,6 +46,23 @@ function jpegComplete(buf){
   return false;
 }
 function frameEpoch(fname){ const m = fname.match(/^(\d+)\.jpg$/); return m ? +m[1] : null; }
+// Some sources occasionally deliver a half image that gets re-encoded WHOLE (valid SOI+EOI) with a
+// flat mid-grey band baked into the bottom. jpegComplete can't catch that, so we DECODE the frame
+// and reject one whose bottom band is flat (~zero variance) and mid-grey (~128). Genuine haze/cloud/
+// snow/night has real variance or a non-grey mean, so it passes. Keeps grey frames out of storage.
+let jpegDec=null; try{ jpegDec=require('jpeg-js'); }catch(e){ console.error('jpeg-js unavailable — grey-frame check disabled'); }
+function greyFrame(buf){
+  if(!jpegDec) return false;
+  try{
+    const img=jpegDec.decode(buf,{formatAsRGBA:true,maxMemoryUsageInMB:1024});
+    const w=img.width,h=img.height,d=img.data; if(!w||!h) return false;
+    const y0=Math.floor(h*0.6), xs=Math.max(1,Math.floor(w/48)); let sum=0; const vals=[];
+    for(let y=y0;y<h;y+=2){ for(let x=0;x<w;x+=xs){ const i=(y*w+x)*4; const L=(d[i]+d[i+1]+d[i+2])/3; vals.push(L); sum+=L; } }
+    if(!vals.length) return false;
+    const m=sum/vals.length; let v=0; for(const L of vals) v+=(L-m)*(L-m); const sd=Math.sqrt(v/vals.length);
+    return sd<6 && m>95 && m<165;
+  }catch(e){ return false; }
+}
 
 const DIAG = [];
 const sleep = ms => new Promise(r=>setTimeout(r, ms));
@@ -65,19 +82,21 @@ async function grabOnce(cam){
   } finally { clearTimeout(timer); }
 }
 async function grab(cam){
-  for(let attempt=1; attempt<=2; attempt++){
+  for(let attempt=1; attempt<=3; attempt++){
     try {
       const r = await grabOnce(cam);
-      const good = r.ok && r.jpeg && r.buf.length >= MIN_BYTES;
-      if(attempt===2 || good) DIAG.push({ id: cam.id, status: r.status, bytes: r.buf.length, jpeg: r.jpeg, placeholder: (r.jpeg && r.buf.length < MIN_BYTES) || undefined, attempt });
+      const grey = r.jpeg && r.buf.length >= MIN_BYTES && greyFrame(r.buf);
+      const good = r.ok && r.jpeg && r.buf.length >= MIN_BYTES && !grey;
+      if(attempt===3 || good) DIAG.push({ id: cam.id, status: r.status, bytes: r.buf.length, jpeg: r.jpeg, grey: grey||undefined, placeholder: (r.jpeg && r.buf.length < MIN_BYTES) || undefined, attempt });
       if(good) return r.buf;
-      if(r.jpeg && r.buf.length < MIN_BYTES) console.log('cam', cam.id, 'placeholder/offline ('+r.buf.length+'B) — skipped');
+      if(grey) console.log('cam', cam.id, 'grey frame — retrying ('+attempt+')');
+      else if(r.jpeg && r.buf.length < MIN_BYTES) console.log('cam', cam.id, 'placeholder/offline ('+r.buf.length+'B) — skipped');
       else console.error('cam', cam.id, 'HTTP', r.status, 'jpeg', r.jpeg, '(attempt', attempt+')');
     } catch(e){
-      if(attempt===2) DIAG.push({ id: cam.id, error: e.message, attempt });
+      if(attempt===3) DIAG.push({ id: cam.id, error: e.message, attempt });
       console.error('cam', cam.id, 'failed (attempt', attempt+'):', e.message);
     }
-    if(attempt<2) await sleep(1000);
+    if(attempt<3) await sleep(1000);
   }
   return null;
 }
@@ -124,14 +143,20 @@ async function s53List(loc){
 }
 async function s53Frame(loc, fname){
   const src = S53_BASE+loc+'/'+fname;
-  const url = 'https://wsrv.nl/?url='+encodeURIComponent(src)+'&w='+S53_W+'&q='+S53_Q+'&output=jpg';
-  const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 15000);
-  try {
-    const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
-    const buf = Buffer.from(await r.arrayBuffer());
-    if(r.ok && jpegComplete(buf)) return buf;   // complete JPEG only — skip truncated frames
-    return null;
-  } catch(e){ return null; } finally { clearTimeout(t); }
+  // wsrv downscale occasionally re-encodes a truncated source into a grey frame — retry cache-busted
+  // and reject grey, so only a complete, non-grey frame is ever stored (keeps "latest" clean).
+  for(let att=1; att<=3; att++){
+    const url = 'https://wsrv.nl/?url='+encodeURIComponent(src)+'&w='+S53_W+'&q='+S53_Q+'&output=jpg'+(att>1?('&cb='+Date.now()):'');
+    const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 15000);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
+      const buf = Buffer.from(await r.arrayBuffer());
+      if(r.ok && jpegComplete(buf) && !greyFrame(buf)) return buf;
+      if(r.ok && jpegComplete(buf)) console.log('s53', loc, fname, 'grey — retrying ('+att+')');
+    } catch(e){} finally { clearTimeout(t); }
+    if(att<3) await sleep(500);
+  }
+  return null;
 }
 
 (async () => {

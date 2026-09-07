@@ -745,43 +745,43 @@
   // failure the <img> onerror handler falls back to the direct raw URL once.
   function camSrc(path,w){ var raw=LIVE_BASE+path; return "https://wsrv.nl/?url="+encodeURIComponent(raw)+"&output=jpg&maxage=1d"+(w?("&w="+w+"&fit=cover&we"):""); }
   function camImgErr(el){ if(el.getAttribute("data-fb")){ el.style.display="none"; return; } el.setAttribute("data-fb","1"); var p=el.getAttribute("data-raw"); if(p) el.src=p; else el.style.display="none"; }
-  // Display-side grey guard: a frame that arrives half-loaded renders as a flat mid-grey band along
-  // the bottom. Detect that on load (via a tiny canvas sample) and re-fetch the frame once, cache-busted.
-  function camImgLoad(el){ try{
-    if(el.getAttribute("data-greychk"))return;
-    var w=40, nh=el.naturalHeight||9, nw=el.naturalWidth||16, h=Math.max(8,Math.round(w*nh/nw));
-    var cv=camImgLoad._cv||(camImgLoad._cv=document.createElement("canvas")); cv.width=w; cv.height=h;
-    var cx=cv.getContext("2d"); cx.drawImage(el,0,0,w,h);
-    var y0=Math.floor(h*0.62), d=cx.getImageData(0,y0,w,h-y0).data, sum=0, vals=[];
-    for(var i=0;i<d.length;i+=4){ var L=(d[i]+d[i+1]+d[i+2])/3; vals.push(L); sum+=L; }
-    var mean=sum/vals.length, vc=0; vals.forEach(function(v){ vc+=(v-mean)*(v-mean); }); var sd=Math.sqrt(vc/vals.length);
-    if(sd<5 && mean>80 && mean<190){ // flat mid-grey band = truncated/bad delivery → re-fetch once
-      if(el.getAttribute("data-greyretry")){ el.setAttribute("data-greychk","1"); return; }
-      el.setAttribute("data-greyretry","1");
-      var raw=el.getAttribute("data-raw"); if(!raw){ el.setAttribute("data-greychk","1"); return; }
-      var cb=raw+(raw.indexOf("?")<0?"?":"&")+"cb="+Date.now();
-      el.src="https://wsrv.nl/?url="+encodeURIComponent(cb)+"&output=jpg"+(el.classList.contains("pic")?"&w=480&fit=cover&we":"")+"&maxage=1d";
-    } else { el.setAttribute("data-greychk","1"); }
-  }catch(e){ el.setAttribute("data-greychk","1"); } }
-  window.camImgErr=camImgErr; window.camImgLoad=camImgLoad;   // inline on* handlers run in global scope
-  // BULLETPROOF cam image loading: fetch the frame's bytes (via wsrv, CORS-enabled), verify it's a
-  // COMPLETE jpeg (SOI…EOI) before showing it as a blob. A truncated/half-grey delivery fails the
-  // check and is retried cache-busted — a partial frame can never reach the screen. Stored frames
-  // are already verified clean, so the grey only ever came from delivery; this closes that path.
+  window.camImgErr=camImgErr;   // inline onerror runs in global scope
+  // BULLETPROOF cam images. Some STORED frames are complete JPEGs whose bottom band is baked flat
+  // grey (a truncated source got re-encoded whole upstream). So we can't trust bytes alone: we fetch
+  // each candidate frame, verify it's a complete JPEG, DECODE it and reject a flat mid-grey band,
+  // then walk back to the newest CLEAN frame. A grey frame never reaches the screen.
   function camWsrv(path,w,bust){ var raw=LIVE_BASE+path+(bust?((LIVE_BASE+path).indexOf("?")<0?"?":"&")+"cb="+bust:""); return "https://wsrv.nl/?url="+encodeURIComponent(raw)+"&output=jpg"+(w?("&w="+w+"&fit=cover&we"):"")+"&maxage=1d"; }
   function jpegOk(b){ if(b.length<2500||b[0]!==0xFF||b[1]!==0xD8)return false; for(var i=b.length-2;i>=Math.max(2,b.length-64);i--){ if(b[i]===0xFF&&b[i+1]===0xD9)return true; } return false; }
-  function loadCamPic(imgEl,path,w){ if(!imgEl||!path)return; var token=(imgEl._tok=(imgEl._tok||0)+1), tries=0;
-    function attempt(){ if(imgEl._tok!==token)return; tries++;
-      fetch(camWsrv(path,w,tries>1?(Date.now()+"_"+tries):0),{cache:tries>1?"reload":"default"})
+  // Decode the frame and test the bottom band: flat (low variance) + mid-grey (~128) = the grey bug.
+  // Genuine haze/cloud/snow/night has real variance or a non-grey mean, so it passes.
+  function greyBad(ab){ return new Promise(function(res){ try{
+    if(!window.createImageBitmap) return res(false);
+    createImageBitmap(new Blob([ab],{type:"image/jpeg"})).then(function(bm){
+      var w=48,h=Math.max(8,Math.round(48*bm.height/(bm.width||1)));
+      var cv=greyBad._cv||(greyBad._cv=document.createElement("canvas")); cv.width=w; cv.height=h;
+      var cx=cv.getContext("2d"); cx.drawImage(bm,0,0,w,h); if(bm.close)bm.close();
+      var y0=Math.floor(h*0.6), d=cx.getImageData(0,y0,w,h-y0).data, s=0, vals=[];
+      for(var i=0;i<d.length;i+=4){ var L=(d[i]+d[i+1]+d[i+2])/3; vals.push(L); s+=L; }
+      var m=s/vals.length, v=0; vals.forEach(function(x){ v+=(x-m)*(x-m); }); var sd=Math.sqrt(v/vals.length);
+      res(sd<6 && m>95 && m<165);
+    }, function(){ res(false); });
+  }catch(e){ res(false); } }); }
+  // cands = frame paths newest→oldest. Show the first complete, non-grey one.
+  function loadCamPic(imgEl,cands,w){ if(!imgEl)return; if(typeof cands==="string")cands=[cands]; cands=(cands||[]).filter(Boolean); if(!cands.length){ imgEl.style.display="none"; return; }
+    var token=(imgEl._tok=(imgEl._tok||0)+1);
+    function show(ab){ if(imgEl._tok!==token)return; var old=imgEl._blob; var url=URL.createObjectURL(new Blob([ab],{type:"image/jpeg"})); imgEl._blob=url; imgEl.style.display=""; imgEl.src=url; if(old)try{URL.revokeObjectURL(old);}catch(_){} }
+    function tryIdx(ci,att){ if(imgEl._tok!==token)return; if(ci>=cands.length){ imgEl.style.display="none"; return; }
+      fetch(camWsrv(cands[ci],w,att>0?(Date.now()+"_"+att):0),{cache:att>0?"reload":"default"})
         .then(function(r){ if(!r.ok)throw 0; return r.arrayBuffer(); })
-        .then(function(ab){ if(imgEl._tok!==token)return; var b=new Uint8Array(ab);
-          if(jpegOk(b)){ var old=imgEl._blob; var url=URL.createObjectURL(new Blob([ab],{type:"image/jpeg"})); imgEl._blob=url; imgEl.style.display=""; imgEl.src=url; if(old)try{URL.revokeObjectURL(old);}catch(_){} }
-          else if(tries<6){ setTimeout(attempt,250*tries); } else { imgEl.style.display="none"; } })
-        .catch(function(){ if(imgEl._tok===token){ if(tries<6)setTimeout(attempt,250*tries); else imgEl.style.display="none"; } });
+        .then(function(ab){ if(imgEl._tok!==token)return; if(!jpegOk(new Uint8Array(ab))){ if(att<2)return void setTimeout(function(){tryIdx(ci,att+1);},250*(att+1)); return tryIdx(ci+1,0); }
+          greyBad(ab).then(function(bad){ if(imgEl._tok!==token)return; if(bad)tryIdx(ci+1,0); else show(ab); }); })
+        .catch(function(){ if(imgEl._tok!==token)return; if(att<2)setTimeout(function(){tryIdx(ci,att+1);},250*(att+1)); else tryIdx(ci+1,0); });
     }
-    attempt();
+    tryIdx(0,0);
   }
-  function hydrateCamPics(root){ (root||document).querySelectorAll(".pic[data-path]").forEach(function(el){ loadCamPic(el, el.getAttribute("data-path"), +el.getAttribute("data-w")||0); }); }
+  // Build candidate list (newest→older) for a cam from the manifest, falling back to data-path.
+  function camCandsFor(id,fallback){ var fr=camFramesFor(id); if(fr.length) return fr.slice(-8).reverse().map(function(f){return f.f;}); return fallback?[fallback]:[]; }
+  function hydrateCamPics(root){ (root||document).querySelectorAll(".pic[data-pic]").forEach(function(el){ loadCamPic(el, camCandsFor(el.getAttribute("data-pic"), el.getAttribute("data-path")), +el.getAttribute("data-w")||0); }); }
   var CAMS_LATEST=[], CAM_MANIFEST=null, scrub={id:null,frames:[],i:0,playing:false,timer:null};
   // Verified cam altitudes (m) — shown after the name. Blank where not confirmed. (JB can correct.)
   var CAM_ALT={ s53_bovec:460, s53_kanin:2200, s53_stol:1600, s53_stoln:1600, s53_kuk:1100, s53_crnaprst:1770, arso_kredarica_e:2514, arso_kredarica_se:2514, dars_predel:1156, si_logmangart01:650, windy_bovec_e:460, windy_bovec_w:460, bfx_kanin_skalar:2260, bfx_kanin_sedlo:2260 };
@@ -862,7 +862,7 @@
       '</div>';
     document.getElementById("overlay").classList.add("open");
     scrub={id:id,frames:[],i:0,playing:false,timer:null};
-    if(c.latest) loadCamPic(document.getElementById("scrubImg"), c.latest, 0);
+    if(c.latest) loadCamPic(document.getElementById("scrubImg"), camCandsFor(id,c.latest), 0);
     wireScrub();
     loadScrubFrames(id);
   }
@@ -885,7 +885,7 @@
   function spanHrs(frames){ if(frames.length<2)return'—'; var h=(frames[frames.length-1].t-frames[0].t)/3600000; return h>=1?h.toFixed(1)+'h':Math.round(h*60)+'m'; }
   function showScrub(i){
     var f=scrub.frames[i]; if(!f)return;
-    var img=document.getElementById("scrubImg"); if(img) loadCamPic(img,f.f,0);
+    var img=document.getElementById("scrubImg"); if(img){ var cds=[]; for(var k=i;k>=Math.max(0,i-7);k--){ if(scrub.frames[k])cds.push(scrub.frames[k].f); } loadCamPic(img,cds,0); }
     var t=document.getElementById("scrubTime"); if(t)t.textContent=fmtClock(f.t)+(i===scrub.frames.length-1?' · newest':'');
   }
   function fmtClock(epoch){ var d=new Date(epoch); return d.toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'}); }
@@ -1082,8 +1082,8 @@
     });
     cg.addEventListener("input",function(e){
       var s=e.target.closest(".tlslider"); if(!s)return;
-      var id=s.getAttribute("data-tl"), frames=camFramesFor(id), f=frames[+s.value]; if(!f)return;
-      var img=cg.querySelector('.pic[data-pic="'+id+'"]'); if(img) loadCamPic(img,f.f,480);
+      var id=s.getAttribute("data-tl"), frames=camFramesFor(id), vi=+s.value, f=frames[vi]; if(!f)return;
+      var img=cg.querySelector('.pic[data-pic="'+id+'"]'); if(img){ var cds=[]; for(var k=vi;k>=Math.max(0,vi-7);k--){ if(frames[k])cds.push(frames[k].f); } loadCamPic(img,cds,480); }
       var t=cg.querySelector('.tlt[data-tlt="'+id+'"]'); if(t)t.textContent=fmtClock(f.t)+((+s.value===frames.length-1)?' · now':'');
     });
     cg.addEventListener("dblclick",function(e){ var n=e.target.closest("[data-camname]"); if(n){ e.preventDefault(); startCamRename(n.getAttribute("data-camname")); } });
