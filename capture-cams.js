@@ -51,6 +51,15 @@ function frameEpoch(fname){ const m = fname.match(/^(\d+)\.jpg$/); return m ? +m
 // and reject one whose bottom band is flat (~zero variance) and mid-grey (~128). Genuine haze/cloud/
 // snow/night has real variance or a non-grey mean, so it passes. Keeps grey frames out of storage.
 let jpegDec=null; try{ jpegDec=require('jpeg-js'); }catch(e){ console.error('jpeg-js unavailable — grey-frame check disabled'); }
+let sharp=null; try{ sharp=require('sharp'); }catch(e){ console.error('sharp unavailable — s53 will fall back to wsrv downscale'); }
+// Downscale a full-res source buffer LOCALLY with sharp (never through wsrv, which is what baked the
+// grey band in). Returns a clean, downscaled JPEG, or null (grey / no sharp) so the caller can fall back.
+async function downscaleClean(raw, w, q){
+  if(!sharp) return null;
+  try{ const out = await sharp(raw).resize({ width:w, withoutEnlargement:true }).jpeg({ quality:q }).toBuffer();
+       return greyFrame(out) ? null : out; }
+  catch(e){ return null; }
+}
 function greyFrame(buf){
   if(!jpegDec) return false;
   try{
@@ -143,18 +152,29 @@ async function s53List(loc){
 }
 async function s53Frame(loc, fname){
   const src = S53_BASE+loc+'/'+fname;
-  // wsrv downscale occasionally re-encodes a truncated source into a grey frame — retry cache-busted
-  // and reject grey, so only a complete, non-grey frame is ever stored (keeps "latest" clean).
+  // PRIMARY: fetch the source DIRECTLY (the runner can reach s53mv) and downscale locally with sharp.
+  // The direct source is the real, clean image; wsrv is what baked in the grey band, so we avoid it.
   for(let att=1; att<=3; att++){
+    const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 15000);
+    try {
+      const u = src + (att>1 ? ((src.indexOf('?')<0?'?':'&')+'cb='+Date.now()) : '');
+      const r = await fetch(u, { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
+      const raw = Buffer.from(await r.arrayBuffer());
+      if(r.ok && jpegComplete(raw)){ const out = await downscaleClean(raw, S53_W, S53_Q); if(out) return out; }
+      else if(r.ok) console.log('s53', loc, fname, 'direct incomplete — retry ('+att+')');
+    } catch(e){} finally { clearTimeout(t); }
+    if(att<3) await sleep(500);
+  }
+  // FALLBACK (direct failed, or no sharp): wsrv downscale, still reject grey.
+  for(let att=1; att<=2; att++){
     const url = 'https://wsrv.nl/?url='+encodeURIComponent(src)+'&w='+S53_W+'&q='+S53_Q+'&output=jpg'+(att>1?('&cb='+Date.now()):'');
     const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 15000);
     try {
       const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
       const buf = Buffer.from(await r.arrayBuffer());
       if(r.ok && jpegComplete(buf) && !greyFrame(buf)) return buf;
-      if(r.ok && jpegComplete(buf)) console.log('s53', loc, fname, 'grey — retrying ('+att+')');
     } catch(e){} finally { clearTimeout(t); }
-    if(att<3) await sleep(500);
+    if(att<2) await sleep(400);
   }
   return null;
 }
