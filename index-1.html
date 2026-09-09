@@ -1,0 +1,1265 @@
+<!-- Pure Mountain Weather — LIVE. Reads data.json (observed winds) every 5 min. Open-Meteo model fallback when stale. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pure Mountain Weather — Soča wind</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    /* --- SKIN: Dark (default) --- */
+    --bg:#0d151f; --panel:#14202e; --panel-2:#1a2938; --line:#25384f;
+    --ink:#e8eef6; --ink-dim:#8ba0b6; --ink-faint:#5f7288;
+    --accent:#59c7e8; --go:#3fb950; --caution:#e3b341; --danger:#f2564a; --radius:12px;
+    --on-ink:#062330; --header-bg:linear-gradient(180deg,#16283a,#111c28); --lists-bg:#101b27;
+    --chip-bg:rgba(13,21,31,.9); --cam-bg:#0a141d; --ph-bg:linear-gradient(180deg,#16324a,#0c1822);
+  }
+  /* --- SKIN: Light --- */
+  html[data-skin="light"]{
+    --bg:#eef2f7; --panel:#ffffff; --panel-2:#f3f6fa; --line:#d3dbe6;
+    --ink:#16202c; --ink-dim:#51627a; --ink-faint:#8797ab;
+    --accent:#0d84a8; --go:#1f9d3f; --caution:#b9820f; --danger:#d33c2f;
+    --on-ink:#ffffff; --header-bg:linear-gradient(180deg,#ffffff,#e9eff5); --lists-bg:#e7edf4;
+    --chip-bg:rgba(255,255,255,.94); --cam-bg:#d5dee8; --ph-bg:linear-gradient(180deg,#cfdae6,#e6ecf3);
+  }
+  /* --- SKIN: Daylight (high-contrast for bright sun) --- */
+  html[data-skin="daylight"]{
+    --bg:#ffffff; --panel:#ffffff; --panel-2:#eef1f5; --line:#8fa0b4;
+    --ink:#04080d; --ink-dim:#2b3a4c; --ink-faint:#4e5d73;
+    --accent:#0057d8; --go:#0c8a2c; --caution:#a56200; --danger:#ce0010;
+    --on-ink:#ffffff; --header-bg:linear-gradient(180deg,#ffffff,#ffffff); --lists-bg:#eef2f7;
+    --chip-bg:rgba(255,255,255,.98); --cam-bg:#c3cedb; --ph-bg:linear-gradient(180deg,#c3cedb,#dde4ec);
+  }
+  /* --- SKIN: Midnight (OLED black) --- */
+  html[data-skin="midnight"]{
+    --bg:#000000; --panel:#0a0f16; --panel-2:#12181f; --line:#243040;
+    --ink:#eef3f8; --ink-dim:#8394a6; --ink-faint:#576474;
+    --accent:#4fd0ee; --go:#39c552; --caution:#e6bb3f; --danger:#ff5747;
+    --on-ink:#00171f; --header-bg:linear-gradient(180deg,#080d13,#000000); --lists-bg:#04070b;
+    --chip-bg:rgba(0,0,0,.86); --cam-bg:#05090e; --ph-bg:linear-gradient(180deg,#0b1a26,#05090e);
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+  a{color:var(--accent)}
+
+  .banner{background:#12291c;color:#8fd6a6;border-bottom:1px solid #244a33;font-size:12px;padding:6px 18px;text-align:center;letter-spacing:.02em}
+  .banner strong{color:#c6f0d4}
+  .banner.stale{background:#3a1414;color:#ffb3ab;border-bottom:1px solid #5a2420}
+  .banner.stale strong{color:#ffd4cf}
+
+  header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--header-bg)}
+  .brand{display:flex;align-items:center;flex-wrap:wrap}
+  .pmwlogo{margin-right:9px;flex:0 0 auto;display:block}
+  .brand h1{font-size:18px;font-weight:600;margin:0;letter-spacing:.01em;white-space:nowrap}
+  .status{display:inline-flex;align-items:center;margin-left:12px}
+  .sdot{width:9px;height:9px;border-radius:50%;background:var(--ink-faint);display:inline-block;margin-right:7px;flex:0 0 auto}
+  .sdot.green{background:var(--go);box-shadow:0 0 7px var(--go)}
+  .sdot.amber{background:var(--caution);box-shadow:0 0 6px var(--caution)}
+  .sdot.red{background:var(--danger);box-shadow:0 0 7px var(--danger)}
+  .supd{font-size:12px;color:var(--ink-dim);font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  [hidden]{display:none!important}
+  header .spacer{flex:1}
+  .controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .ctl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim)}
+  .ctl label{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;color:var(--ink-dim);border:0;cursor:pointer;padding:5px 9px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  .seg button.on{background:var(--accent);color:var(--on-ink);font-weight:600}
+  .seg button:not(.on):hover{background:var(--panel-2);color:var(--ink)}
+  input.num{width:48px;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:5px 7px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  input.num:focus{outline:none;border-color:var(--accent)}
+  button.act{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:7px}
+  button.act:hover{border-color:var(--accent);color:var(--ink)}
+
+  .lists{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-left:6px}
+  .ltab{display:inline-flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);border-radius:20px;padding:3px 10px;cursor:pointer;font-size:12px}
+  .ltab:hover{color:var(--ink);border-color:#33475f}
+  .ltab.on{background:var(--accent);color:var(--on-ink);border-color:var(--accent);font-weight:600}
+  .ltab .ct{font-family:"IBM Plex Mono",monospace;font-size:11px;opacity:.8}
+  .ltab.newl{border-style:dashed;color:var(--ink-faint)}
+  .ltab.newl:hover{color:var(--accent);border-color:var(--accent)}
+  .listmini{display:inline-flex;gap:8px;align-items:center;margin-left:4px}
+  .listmini button{background:none;border:0;color:var(--ink-faint);cursor:pointer;font-size:12px;padding:2px 4px}
+  .listmini button:hover{color:var(--accent)}
+  .newinput{background:var(--panel-2);border:1px solid var(--accent);color:var(--ink);border-radius:20px;padding:5px 12px;font-size:13px;width:150px}
+  .newinput:focus{outline:none}
+
+  .content{height:calc(100% - 61px - 40px - 45px)}
+  .app{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);height:100%}
+  #map{height:100%;width:100%;background:#0a1119}
+  .board{overflow-y:auto;border-left:1px solid var(--line);padding:14px 16px 40px}
+  .botnav{display:none}
+  @media (max-width:900px){.content{height:auto}.app{grid-template-columns:1fr}#map{height:56vh;min-height:300px}.board{border-left:0;border-top:1px solid var(--line)}
+    /* Bottom tab bar (thumb-reachable) replaces the top View tabs on phones. */
+    .viewctl{display:none}
+    .content{padding-bottom:56px}
+    .card{padding:9px 11px}
+    .botnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:700;background:var(--panel);border-top:1px solid var(--line);padding:5px 6px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+    .botnav button{flex:1;background:none;border:0;color:var(--ink-dim);font-size:12.5px;font-weight:600;padding:9px 4px;cursor:pointer;border-radius:9px;font-family:inherit}
+    .botnav button.on{color:var(--accent);background:var(--panel-2)}
+    /* Phone: the title + tabs stick to the top and slide out of the way as you scroll down, back in as you scroll up. */
+    #topchrome{position:sticky;top:0;z-index:600;background:var(--bg);transition:transform .28s ease;will-change:transform}
+    body.chrome-hidden #topchrome{transform:translateY(-105%)}
+    header{gap:8px 10px;padding:10px 14px}
+    .controls{gap:10px}
+    .status{margin-left:9px}
+    .lists{margin-left:0;width:100%}
+  }
+  @media (max-width:560px){
+    /* Phone: icon-only Settings/Refresh + drop the "View" label so the controls fit one row. */
+    .btxt,.viewlbl{display:none}
+    .controls{gap:8px;width:100%}
+    #settingsBtn,#refresh{padding:6px 9px}
+    .banner{font-size:11.5px;padding:5px 12px}
+  }
+
+  .cards{display:flex;flex-direction:column;gap:9px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:11px 13px;position:relative;transition:border-color .12s,box-shadow .12s}
+  .card.hl{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .card .head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .nrow{display:flex;align-items:center;gap:8px}
+  .star{background:none;border:0;cursor:pointer;font-size:16px;line-height:1;color:var(--ink-faint);padding:0}
+  .star.on{color:#ffce54}
+  .name{font-weight:600;font-size:15px}
+  .src{font-family:"IBM Plex Mono",monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);border:1px solid var(--line);border-radius:5px;padding:1px 5px;text-decoration:none}
+  a.src:hover{color:var(--accent);border-color:var(--accent)}
+  .live{background:var(--go);color:#04120a;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:4px;padding:1px 5px;margin-left:2px}
+  .samp{color:var(--ink-faint);font-size:9px;letter-spacing:.06em;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:2px}
+  .bstale{background:var(--caution);color:#2a1e02;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:4px;padding:1px 5px;margin-left:2px}
+  .boff{background:var(--danger);color:#fff;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:4px;padding:1px 5px;margin-left:2px}
+  .elev{font-family:"IBM Plex Sans",system-ui,sans-serif;font-weight:600;color:var(--ink);margin-left:6px}
+  a.name{color:inherit;text-decoration:none}
+  a.name:hover{color:var(--accent);text-decoration:underline}
+  .wt a.name{color:inherit}
+  .upd{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);margin-left:6px}
+  .headbtns{display:flex;gap:6px;align-items:center}
+  .mini{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);border-radius:7px;padding:4px 8px;font-size:11.5px;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+  .mini:hover{border-color:var(--accent);color:var(--ink)}
+
+  .cbody{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap}
+  .cinfo{display:flex;align-items:center;gap:12px;min-width:0}
+  .compass{width:38px;height:38px;flex:0 0 auto}
+  .compass svg{width:100%;height:100%}
+  .compass .ring{fill:none;stroke:var(--line);stroke-width:2}
+  .compass .arrow{transform-origin:19px 19px;transition:transform .5s ease}
+  .compass .arrow path{fill:var(--accent)}
+  .big{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+  .big .val{font-family:"IBM Plex Mono",monospace;font-size:28px;font-weight:600;line-height:1}
+  .big .val.go{color:var(--go)} .big .val.caution{color:var(--caution)} .big .val.danger{color:var(--danger)}
+  .big .unit{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-dim)}
+  .big .dir-inline{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-dim);margin-left:4px}
+  .ministats{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-dim);margin-top:4px}
+  .ministats b{font-weight:600}
+  .ministats .w-go{color:var(--go)} .ministats .w-caution{color:var(--caution)} .ministats .w-danger{color:var(--danger)}
+  .cchart{flex:0 0 auto;text-align:right}
+  .cchart svg{display:block}
+  .sparklab{font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--ink-faint);margin-top:2px}
+
+  .pop{position:absolute;right:14px;top:44px;z-index:30;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:190px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .pop h4{margin:2px 6px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);font-weight:600}
+  .pop .opt{display:flex;align-items:center;gap:8px;padding:6px 6px;border-radius:7px;cursor:pointer;font-size:13px}
+  .pop .opt:hover{background:var(--panel)}
+  .pop .opt input{accent-color:var(--accent)}
+  .pop .div{height:1px;background:var(--line);margin:6px 2px}
+  .pop .newrow{display:flex;gap:6px;padding:2px}
+  .pop .newrow input{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:5px 7px;font-size:12.5px}
+  .pop .newrow button{background:var(--accent);color:var(--on-ink);border:0;border-radius:7px;padding:5px 9px;cursor:pointer;font-weight:600;font-size:12.5px}
+
+  .leaflet-div-icon{background:transparent;border:0}
+  .wm{width:60px;text-align:center;font-family:"IBM Plex Sans",sans-serif}
+  .wm svg{display:block;margin:0 auto;transition:filter .12s,transform .12s;transform-origin:50% 55%}
+  .wm.hl svg{filter:drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 7px var(--accent));transform:scale(1.35)}
+  .wm{position:relative}
+  .wm .gustbarb{opacity:0;transition:opacity .12s}
+  .wm.hl .gustbarb{opacity:1}
+  .wm.sg .gustbarb{opacity:.92}
+  .wm.offline{opacity:.72}
+  .wm .wm-name{position:absolute;left:50%;top:-20px;transform:translate(-50%,-100%);white-space:nowrap;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11.5px;font-weight:600;color:var(--ink);opacity:0;transition:opacity .12s;pointer-events:none;box-shadow:0 3px 10px rgba(0,0,0,.5)}
+  .wm.hl .wm-name{opacity:1}
+  .wm-top{display:inline-block;background:var(--chip-bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;margin-top:1px}
+  .wm-bot{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;margin-top:1px;background:var(--chip-bg);border-radius:5px;padding:0 6px}
+  .wm-bot .b{color:#fff;font-weight:600} .wm-bot .g{color:#c7d2dd;font-weight:600;margin-left:6px}
+
+  .map-ctrl{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:3px;box-shadow:0 4px 14px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:3px}
+  .gswitch{display:inline-flex;align-items:center;gap:7px;background:var(--panel);color:var(--ink-dim);border:1px solid var(--line);border-radius:8px;padding:4px 9px 4px 6px;font-size:11.5px;font-family:"IBM Plex Sans",sans-serif;cursor:pointer;white-space:nowrap}
+  .gswitch .knob{position:relative;width:30px;height:17px;border-radius:9px;background:var(--line);transition:background .15s;flex:0 0 auto}
+  .gswitch .knob::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.45)}
+  .gswitch.on{color:var(--ink)}
+  .gswitch.on .knob{background:var(--accent)}
+  .gswitch.on .knob::after{transform:translateX(13px)}
+  .map-ctrl select{background:var(--panel-2);color:var(--ink);border:0;border-radius:6px;padding:4px 6px;font-size:12px;font-family:"IBM Plex Sans",sans-serif;cursor:pointer}
+  .map-ctrl select:focus{outline:none}
+
+  .tableview{height:100%;overflow:auto}
+  table.wt{width:100%;border-collapse:collapse;font-size:14.5px}
+  .wt .rdh{width:26px}
+  .wt td.rowdrag{cursor:grab;color:var(--ink-faint);font-size:15px;text-align:center;width:26px;user-select:none}
+  .wt td.rowdrag:active{cursor:grabbing}
+  .wt tr[draggable="true"]{cursor:grabbing}
+  .wt tr.dragging{opacity:.5}
+  .wt th{position:sticky;top:0;background:var(--lists-bg);color:var(--ink-dim);text-align:left;font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;z-index:2}
+  .wt th.sorted{color:var(--accent)}
+  .wt th .ar{font-size:9px;opacity:.85}
+  .wt td{padding:8px 11px;border-bottom:1px solid #1c2b3c;font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  .wt td.name{font-family:"IBM Plex Sans",sans-serif;font-weight:600}
+  .wt tr:hover td{background:var(--panel)}
+  .wt .w-go{color:var(--go)} .wt .w-caution{color:var(--caution)} .wt .w-danger{color:var(--danger)}
+  .wt .starcell{cursor:pointer;font-size:14px;color:var(--ink-faint)}
+  .wt .starcell.on{color:#ffce54}
+  .wt .ordin{width:34px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:3px 4px;font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:center}
+  .wt .ordin:focus{outline:none;border-color:var(--accent)}
+  .wt a.srcmini{color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-left:8px;font-family:"IBM Plex Mono",monospace;text-decoration:none}
+  .wt a.srcmini:hover{color:var(--accent)}
+  .wt .dirmini{display:inline-flex;align-items:center;gap:6px}
+  .wt .dirmini svg{display:block}
+  .wt .camlink{color:var(--accent);cursor:pointer;margin-left:8px}
+  .wt td.spark svg{display:block}
+  .wt .eye{cursor:pointer;font-size:14px;color:var(--go)}
+  .wt .eye.off{color:var(--ink-faint)}
+
+  .pin-legend{display:flex;gap:14px;align-items:center;padding:6px 18px;font-size:11px;color:var(--ink-faint);border-bottom:1px solid var(--line);background:#0f1a26;flex-wrap:wrap}
+
+  .chartview{height:100%;display:flex;flex-direction:column;padding:12px 16px 20px}
+  .chartbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .chartlegend{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+  .lchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim);cursor:pointer;border:1px solid var(--line);border-radius:20px;padding:3px 10px}
+  .lchip .dot{width:10px;height:10px;border-radius:50%}
+  .lchip.off{opacity:.4}
+  .chartwrap{flex:1;min-height:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px;position:relative}
+  .chartwrap svg{width:100%;height:100%;display:block}
+  .chair{position:absolute;top:10px;bottom:30px;width:1px;background:var(--ink-dim);opacity:.55;pointer-events:none;display:none}
+  .ctip{position:absolute;pointer-events:none;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;display:none;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:150px}
+  .ctip .th{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);margin-bottom:6px}
+  .ctip .cr{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:1px 0}
+  .ctip .nm{display:inline-flex;align-items:center;gap:6px}
+  .ctip .dot{width:8px;height:8px;border-radius:50%}
+  .ctip .vv{font-family:"IBM Plex Mono",monospace;font-weight:600}
+
+  .camsview{height:100%;overflow:auto;padding:14px 16px 34px}
+  .camnote{font-size:12.5px;color:var(--ink-dim);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px}
+  .camnote b{color:var(--ink)}
+  .camgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .camgroups{display:block}
+  .camplace{margin-bottom:20px}
+  .placehd{font-size:12.5px;font-weight:700;color:var(--ink-dim);margin:0 0 9px;padding-bottom:6px;border-bottom:1px solid var(--line);letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .placehd .cnt{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:500;color:var(--ink-faint);text-transform:none;letter-spacing:0}
+  .collage{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+  .camtile2{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .12s}
+  .camtile2:hover{border-color:var(--accent)}
+  .camframe{position:relative;aspect-ratio:16/9;background:var(--cam-bg)}
+  .camframe iframe.cf{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+  .camtile2 .cap{padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .camtile2 .cap .nm{font-weight:600;font-size:14px}
+  .camtile2 .cap .ar{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
+  .camtile2 .expand{background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:7px;width:32px;height:28px;cursor:pointer;font-size:15px;line-height:1;flex:none}
+  .camtile2 .expand:hover{border-color:var(--accent);color:var(--ink)}
+  .cammodal .camframe.big{width:100%;border-radius:10px;overflow:hidden;position:relative}
+  .cammodal #scrubImg{width:100%;display:block;background:var(--cam-bg);aspect-ratio:16/9;object-fit:cover}
+  .scrubtime{position:absolute;left:10px;bottom:10px;background:rgba(6,12,18,.74);color:#eaf1f8;font-family:"IBM Plex Mono",monospace;font-size:12px;padding:3px 9px;border-radius:6px;pointer-events:none}
+  .scrubload{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--accent);border-radius:0 3px 3px 0;transition:width .18s ease;pointer-events:none;box-shadow:0 0 6px var(--accent)}
+  .scrubbar{display:flex;align-items:center;gap:10px;margin-top:11px}
+  .scrubbar input[type=range]{flex:1;accent-color:var(--accent);cursor:pointer}
+  .sbtn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;height:30px;min-width:40px;padding:0 11px;cursor:pointer;font-size:13px;font-family:"IBM Plex Mono",monospace}
+  .sbtn:hover{border-color:var(--accent)}
+  .camtile{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .12s}
+  .camtile:hover{border-color:var(--accent)}
+  .camtile .pic{aspect-ratio:16/9;width:100%;display:block;object-fit:cover;background:var(--cam-bg)}
+  .camtile .ph{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--ph-bg)}
+  .camtile .cap{padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .camtile .camalt{color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:500;margin-left:3px}
+  .camtile .cap .nm{font-weight:600;font-size:14px}
+  .camtile .cap .ar{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint)}
+  .camtile .live{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;letter-spacing:.06em;background:var(--go);color:#04120a;border-radius:4px;padding:1px 6px}
+  .cammodal .big{width:100%;border-radius:10px;display:block;background:var(--cam-bg);aspect-ratio:16/9;object-fit:cover}
+  .cammodal .mh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;gap:10px}
+  .cammodal .src{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);margin-top:9px}
+  .overlay{position:fixed;inset:0;background:rgba(6,12,18,.72);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+  .overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:860px;width:100%;max-height:86vh;overflow:auto;padding:16px 18px}
+  .modal .mhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .modal h3{margin:0;font-size:16px}
+  .modal .close{background:none;border:0;color:var(--ink-dim);font-size:20px;cursor:pointer}
+  .camgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .cam{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .cam .feed{aspect-ratio:16/9;background:repeating-linear-gradient(45deg,#16222f,#16222f 10px,#1a2836 10px,#1a2836 20px);display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;text-align:center;position:relative}
+  .cam .feed::after{content:"live in real version";position:absolute;bottom:6px;right:8px;font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--ink-faint)}
+  .cam .cap{padding:8px 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .cam .cap a{font-size:11.5px;text-decoration:none}
+
+  .gusty{display:inline-block;background:#5a3a05;color:#ffcf87;border:1px solid #9a6a15;font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:700;letter-spacing:.04em;border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .gusty.sm{font-size:8.5px;padding:0 4px;margin-left:5px}
+  .trend{font-family:"IBM Plex Mono",monospace;font-weight:700;font-size:16px;margin:0 2px 0 8px;vertical-align:middle;line-height:1}
+  .t-up{color:#e6a53d}.t-dn{color:#57c26b}.t-flat{color:#7f95a8}
+  .wt .trend{font-size:22px;margin:0 0 0 4px}
+  .wt .dirmini{display:inline-flex;align-items:center;gap:5px}
+  .setmodal{max-width:520px}
+  .setgrid{display:flex;flex-direction:column;gap:15px}
+  .setrow{display:flex;align-items:center;gap:12px;justify-content:space-between}
+  .setrow>label{font-size:13px;color:var(--ink-dim);min-width:132px}
+  .setrow input[type=range]{flex:1;accent-color:var(--accent);cursor:pointer}
+  .setrow .setval{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-dim);min-width:36px;text-align:right}
+  .setrow select,.setrow .num{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 9px;font-size:13px}
+  .setnote{font-size:11.5px;color:var(--ink-faint);border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+  .camtile{position:relative}
+  .camframe2{position:relative;aspect-ratio:16/9;background:var(--cam-bg);overflow:hidden}
+  .camframe2 .pic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .camframe2 .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:12px;background:var(--ph-bg)}
+  .camtile .hovname{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(6,12,18,.12),rgba(6,12,18,.5));opacity:1;transition:opacity .15s;font-size:clamp(17px,2.3vw,27px);font-weight:700;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.75);text-align:center;padding:12px;pointer-events:none}
+  .camtile:hover .hovname{opacity:0}
+  .tlrow{display:flex;align-items:center;gap:9px;padding:7px 11px 3px}
+  .tlslider{flex:1;accent-color:var(--accent);cursor:pointer;height:16px}
+  .camtile .camdrag{cursor:grab;font-size:15px;line-height:1;display:inline-flex;align-items:center}
+  .camtile .camdrag:active{cursor:grabbing}
+  .camtile[draggable="true"]{cursor:grabbing}
+  .tlt{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);min-width:78px;text-align:right;white-space:nowrap}
+  .camtile .tbtns{position:absolute;top:7px;right:7px;display:flex;gap:5px;opacity:0;transition:opacity .12s}
+  .camtile:hover .tbtns{opacity:1}
+  .camtile .tbtn{width:26px;height:26px;border:0;border-radius:6px;background:rgba(6,12,18,.7);color:#dfe8f0;cursor:pointer;font-size:13px;line-height:1}
+  .camtile .tbtn:hover{background:rgba(6,12,18,.92)}
+  .camtile.dragging{opacity:.4}
+  .camtile .live.off{background:#3a2530;color:#f0b8c0}
+  .camtile.dropbefore{box-shadow:-3px 0 0 var(--accent)}
+  .camtile .cap .nm[contenteditable]{outline:1px dashed var(--accent);border-radius:3px;padding:0 3px}
+  .camdivider{grid-column:1/-1;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.06em;color:var(--ink-faint);text-transform:uppercase;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+  .camhidden{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--ink-faint)}
+  .camhidden .chip{background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:3px 10px;cursor:pointer;color:var(--ink-dim)}
+  .camhidden .chip:hover{border-color:var(--accent);color:var(--ink)}
+  .card.dragging{opacity:.4}
+  .card.dragover{border-color:var(--accent)}
+  .card .drag{cursor:grab;color:var(--ink-faint);font-size:13px;padding:0 4px;user-select:none}
+  .footer{padding:12px 18px;border-top:1px solid var(--line);color:var(--ink-faint);font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap}
+
+  /* enlarged webcam view — near full-screen */
+  .modal.cammodal{max-width:min(1280px,95vw);max-height:94vh}
+  .cammodal #scrubImg{max-height:78vh;object-fit:contain;background:var(--cam-bg)}
+
+  /* hover full-graph popover (map cards + list sparklines) */
+  .hovergraph{position:fixed;z-index:1200;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px 5px;box-shadow:0 14px 38px rgba(0,0,0,.6);pointer-events:none;display:none}
+  .hovergraph .hgttl{font-size:12px;font-weight:600;margin:0 2px 5px;color:var(--ink)}
+  .hovergraph .hgttl span{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:11px;color:var(--ink-dim);margin-left:5px}
+  .hovergraph svg{display:block}
+  .hovergraph .hgno{font-size:11px;color:var(--ink-faint);padding:8px 4px 12px}
+  .hovergraph .hgbox svg{display:block}
+  .hovergraph .graphreadout.hgread{font-size:12px;padding:1px 2px 5px;gap:12px}
+  .modal.graphmodal{max-width:min(820px,95vw)}
+  .graphmodal .ghspan{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;color:var(--ink-dim);margin-left:8px}
+  .graphmodal .graphbox{margin-top:2px;overflow-x:auto}
+  .graphmodal .graphbox svg{display:block}
+  .graphreadout{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink-dim);padding:6px 2px 10px}
+  .graphreadout .grtime{color:var(--ink);font-weight:600;min-width:46px}
+  .graphreadout b{color:var(--ink);font-weight:600}
+  .graphreadout .grw b{color:var(--go)}
+  [data-graph]{cursor:crosshair}
+</style>
+
+<div id="topchrome">
+<div class="banner" id="banner" hidden></div>
+
+<header>
+  <div class="brand">
+    <svg class="pmwlogo" viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M1 20.5L8 8l4 6 3-4.5 7.5 11z" fill="var(--accent)"/><path d="M2.5 5.4c4-2.1 7.2 1.6 10.8.4" fill="none" stroke="var(--ink-dim)" stroke-width="1.7" stroke-linecap="round"/><circle cx="18.5" cy="5" r="1.4" fill="var(--ink-dim)"/></svg>
+    <h1>Pure Mountain Weather</h1>
+    <span class="status"><span class="sdot" id="statusDot" title="Data freshness"></span><span class="supd" id="statusTxt"></span></span>
+  </div>
+  <div class="lists" id="lists"></div>
+  <div class="spacer"></div>
+  <div class="controls">
+    <div class="ctl viewctl"><label class="viewlbl">View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button></div></div>
+    <button class="act" id="settingsBtn">&#9881; <span class="btxt">Settings</span></button>
+    <button class="act" id="refresh"><span id="refIcon">&#8635;</span> <span class="btxt">Refresh</span></button>
+  </div>
+</header>
+</div>
+
+<div class="content" id="content">
+  <div class="app" id="mapview">
+    <div id="map"></div>
+    <div class="board"><div class="cards" id="cards"></div></div>
+  </div>
+  <div class="tableview" id="listview" style="display:none"><table class="wt"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  <div class="chartview" id="chartview" style="display:none">
+    <div class="chartbar">
+      <div class="ctl"><label>Window</label><div class="seg" id="rangeSeg"><button data-r="2">2 h</button><button data-r="6">6 h</button><button data-r="12">12 h</button><button data-r="24">24 h</button></div></div>
+      <div class="ctl"><label>Show</label><div class="seg" id="metricSeg"><button data-m="wind">Wind</button><button data-m="gust">Gusts</button><button data-m="both">Both</button></div></div>
+      <div class="chartlegend" id="chartlegend"></div>
+    </div>
+    <div class="chartwrap" id="chartwrap"></div>
+  </div>
+  <div class="camsview" id="camsview" style="display:none">
+    <div class="camnote" id="camnote"></div>
+    <div class="camgroups" id="camgrid"></div>
+  </div>
+</div>
+
+
+<nav class="botnav" id="botnav">
+  <button data-v="map">Map</button>
+  <button data-v="list">List</button>
+  <button data-v="chart">Chart</button>
+  <button data-v="cams">Cams</button>
+</nav>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div class="hovergraph" id="hoverGraph"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // Live board: station data is fetched from data.json (written by the collector) on load and every 5 min.
+  var STATIONS=[];
+  var DATA_META={ generated:null, model:null };   // generated = ISO string of last collector run; model = Open-Meteo fallback reading
+  var STALE_MIN=30;                                // show MODEL fallback when data is older than this many minutes
+  var dataLoadedOnce=false;
+
+  var PALETTE=["#59c7e8","#f2c14e","#7ee081","#f2564a","#b58cf0","#4aa3ff","#ff9f68"];
+  var GUSTCOL="#f5b942";   // amber gust barbs shown on marker hover
+
+  var state={ unit:"ms", caution:13.6, danger:21.4, active:"all", view:"map", sortKey:"custom", sortDir:1,
+    chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark", skin:"dark", showGusts:false, elevUnit:"m",
+    barbScale:1, indicator:"barb", calmScale:1, sparkRange:12,
+    camNames:{}, camOrder:[], camHidden:{},
+    order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[] };
+  var editingList=null, openPop=null, lastChart=null;
+
+  var UNIT_LABEL={kn:"kt",ms:"m/s",kmh:"km/h",mph:"mph"};
+  var FROM_KMH={kmh:1,kn:0.539957,ms:0.277778,mph:0.621371};
+  var COMPASS=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  var map, markers={};
+
+  function genHi(s){
+    // Real station: build history points from rw/rg arrays, anchored at the real observation time (obsTs), 10-min steps.
+    if(s.real){ var m=s.rw.length,rp=[],k; var anchor=s.obsTs||Date.now(), step=s.stepMs||600000; for(k=0;k<m;k++){ rp.push({t:anchor-(m-1-k)*step, wind:s.rw[k], gust:s.rg[k]}); } s.hi=rp; s.wind=s.rw[m-1]; s.gust=s.rg[m-1]; if(!s.series||!s.series.length)s.series=s.rw.slice(-12); return; }
+    var n=145, pts=[], lvl=s.series[0], amp=Math.max(3,s.wind*0.5), i;
+    for(i=0;i<n;i++){ var diurnal=amp*Math.sin(i/n*Math.PI*3 + s.dir/40); var noise=(Math.random()*2-1)*amp*0.35;
+      lvl += (s.wind - lvl)*0.04; var wind=Math.max(0, lvl*0.6 + s.wind*0.4 + diurnal*0.5 + noise); var gust=wind*(1.4+Math.random()*0.4);
+      pts.push({t:Date.now()-(n-1-i)*10*60000, wind:wind, gust:gust}); }
+    pts[n-1].wind=s.wind; pts[n-1].gust=s.gust; s.hi=pts;
+  }
+
+  // Persistence: use Cowork window.storage if present (preview), else browser localStorage (GitHub Pages). Both guarded.
+  function loadStore(key){ return new Promise(function(res){
+    if(typeof window!=="undefined" && window.storage){
+      try{ window.storage.get(key,false).then(function(r){ try{res(r?JSON.parse(r.value):null);}catch(e){res(null);} }).catch(function(){res(null);}); }catch(e){res(null);}
+      return;
+    }
+    try{ var v=window.localStorage.getItem(key); res(v?JSON.parse(v):null); }catch(e){ res(null); }
+  });}
+  function saveStore(key,val){
+    if(typeof window!=="undefined" && window.storage){ try{ window.storage.set(key,JSON.stringify(val),false).catch(function(){}); }catch(e){} return; }
+    try{ window.localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
+  }
+  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden,showGusts:state.showGusts,elevUnit:state.elevUnit}); }
+  function elevStr(m){ if(m==null||m==="")return ""; return state.elevUnit==="ft"?(Math.round(m*3.28084)+"ft"):(m+"m"); }
+  // Cross-device sync: pack lists + settings into a link (#sync=…). Opening that link on another
+  // device imports them. Manual carry (no server) — this is the local-storage-per-device workaround.
+  function b64enc(str){ return btoa(unescape(encodeURIComponent(str))); }
+  function b64dec(b){ return decodeURIComponent(escape(atob(b))); }
+  function syncPayload(){ return { v:1, lists:state.lists, s:{ unit:state.unit, caution:state.caution, danger:state.danger, skin:state.skin, basemap:state.basemap, sparkRange:state.sparkRange, indicator:state.indicator, barbScale:state.barbScale, calmScale:state.calmScale, camNames:state.camNames, camOrder:state.camOrder, camHidden:state.camHidden, order:state.order, mapHidden:state.mapHidden } }; }
+  function makeSyncLink(){ try{ return location.origin+location.pathname+"#sync="+encodeURIComponent(b64enc(JSON.stringify(syncPayload()))); }catch(e){ return null; } }
+  function applySyncHash(){ var m=(location.hash||"").match(/[#&]sync=([^&]+)/); if(!m)return false; try{ var o=JSON.parse(b64dec(decodeURIComponent(m[1]))); if(o.lists)state.lists=o.lists; var q=o.s||{}; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.skin)state.skin=q.skin; if(q.basemap)state.basemap=q.basemap; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.indicator)state.indicator=q.indicator; if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.camNames)state.camNames=q.camNames; if(q.camOrder)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.order)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; persist(); try{history.replaceState(null,"",location.pathname+location.search);}catch(_){} return true; }catch(e){ return false; } }
+
+  function disp(kmh){ return kmh*FROM_KMH[state.unit]; }
+  function knots(kmh){ return kmh*0.539957; }
+  function knotsToDisp(kt){ return (kt/0.539957)*FROM_KMH[state.unit]; }
+  function dispToKnots(v){ return (v/FROM_KMH[state.unit])*0.539957; }
+  function threshFmt(kt){ var v=knotsToDisp(kt); return state.unit==="ms"?(Math.round(v*2)/2).toFixed(1):String(Math.round(v)); }
+  function refreshThreshUI(){ var c=document.getElementById("caution"),d=document.getElementById("danger"),cu=document.getElementById("cautionUnit"),du=document.getElementById("dangerUnit"); if(c)c.value=threshFmt(state.caution); if(d)d.value=threshFmt(state.danger); if(cu)cu.textContent=UNIT_LABEL[state.unit]; if(du)du.textContent=UNIT_LABEL[state.unit]; }
+  function fmt(kmh){ if(kmh==null||isNaN(kmh))return "\u2013"; var v=disp(kmh); return state.unit==="ms"?v.toFixed(1):String(Math.round(v)); }
+  function statusOf(kmh){ if(kmh==null)return"none"; var k=knots(kmh); if(k>=state.danger)return"danger"; if(k>=state.caution)return"caution"; return"go"; }
+  function compass(d){ if(d==null||isNaN(d))return"\u2013"; return COMPASS[Math.round(d/22.5)%16]; }
+  function byId(id){ return STATIONS.filter(function(s){return s.id===id;})[0]; }
+  function listById(id){ return state.lists.filter(function(l){return l.id===id;})[0]; }
+  function fav(){ return listById("fav"); }
+  function inList(list,sid){ return !!list && list.members.indexOf(sid)>=0; }
+  function colorFor(s){ return PALETTE[STATIONS.indexOf(s)%PALETTE.length]; }
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function ageMinOf(s){ if(s.obsTs){ return Math.max(0,Math.round((Date.now()-s.obsTs)/60000)); } return (typeof s.ageMin==="number")?s.ageMin:null; }
+  function updatedStr(s){ var age=ageMinOf(s); var d=s.obsTs?new Date(s.obsTs):new Date(Date.now()-(age||0)*60000); return pad2(d.getHours())+":"+pad2(d.getMinutes())+(age==null?"":" ("+age+"m)"); }
+  function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
+
+  function orderedAll(){ var seen={}; var out=state.order.map(byId).filter(function(s){ if(!s||seen[s.id])return false; seen[s.id]=1; return true; }); STATIONS.forEach(function(s){ if(!seen[s.id])out.push(s); }); return out; }
+  function visibleStations(){ var all=orderedAll(); if(state.active==="all")return all; var l=listById(state.active); return all.filter(function(s){ return l && l.members.indexOf(s.id)>=0; }); }
+
+  // ---- list tabs ----
+  function renderLists(){
+    var el=document.getElementById("lists"); var html="";
+    html+='<div class="ltab '+(state.active==="all"?"on":"")+'" data-list="all">All <span class="ct">'+STATIONS.length+'</span></div>';
+    state.lists.forEach(function(l){
+      if(editingList===l.id){ html+='<input class="newinput" data-rename="'+l.id+'" value="'+escapeHtml(l.name)+'">'; }
+      else{ var icon=l.builtin?"\u2605 ":""; html+='<div class="ltab '+(state.active===l.id?"on":"")+'" data-list="'+l.id+'">'+icon+escapeHtml(l.name)+' <span class="ct">'+l.members.length+'</span></div>'; }
+    });
+    var a=listById(state.active);
+    if(a && !a.builtin && editingList!==a.id){ html+='<span class="listmini"><button data-editlist="'+a.id+'">rename</button><button data-dellist="'+a.id+'">delete</button></span>'; }
+    if(editingList==="__new__"){ html+='<input class="newinput" id="newListInput" placeholder="List name\u2026">'; }
+    else{ html+='<div class="ltab newl" data-newlist="1">+ New list</div>'; }
+    el.innerHTML=html;
+    var ni=document.getElementById("newListInput");
+    if(ni){ ni.focus(); ni.addEventListener("keydown",function(e){ if(e.key==="Enter")commitNewList(ni.value); if(e.key==="Escape"){editingList=null;renderLists();} }); ni.addEventListener("blur",function(){ commitNewList(ni.value); }); }
+    var ri=el.querySelector("[data-rename]");
+    if(ri){ ri.focus(); ri.select&&ri.select(); var lid=ri.getAttribute("data-rename");
+      ri.addEventListener("keydown",function(e){ if(e.key==="Enter")ri.blur(); if(e.key==="Escape"){editingList=null;renderLists();} });
+      ri.addEventListener("blur",function(){ var l=listById(lid); if(l){l.name=ri.value.trim()||l.name;} editingList=null; persist(); renderLists(); }); }
+  }
+  function commitNewList(name){ name=(name||"").trim(); editingList=null;
+    if(name){ var id="l"+Math.random().toString(36).slice(2,7); state.lists.push({id:id,name:name,builtin:false,members:[]}); state.active=id; persist(); }
+    renderLists(); render(); }
+
+  // ---- card view ----
+  // Card sparkline series = a station's own history within the chosen span (state.sparkRange hrs), downsampled.
+  function sparkSeries(s){
+    if(!s.hi || !s.hi.length) return (s.series&&s.series.length)?s.series:[s.wind||0,s.wind||0];
+    var since=Date.now()-(state.sparkRange||12)*3600000;
+    var w=s.hi.filter(function(p){return p.t>=since;});
+    if(w.length<2) w=s.hi.slice(-2);
+    var vals=w.map(function(p){return p.wind;});
+    if(vals.length>22){ var out=[], step=(vals.length-1)/21, i; for(i=0;i<21;i++)out.push(vals[Math.round(i*step)]); out.push(vals[vals.length-1]); return out; }
+    return vals.length?vals:[s.wind||0,s.wind||0];
+  }
+  function compassSvg(dir){ var rot=(dir==null||isNaN(dir))?0:(dir+180);
+    return '<div class="compass"><svg viewBox="0 0 38 38"><circle class="ring" cx="19" cy="19" r="16"/><g class="arrow" style="transform:rotate('+rot+'deg)"><path d="M19 5 L24 22 L19 18 L14 22 Z"/></g></svg></div>'; }
+  function sparkSvg(series,status,w,h){
+    w=w||110; h=h||30; var pad=3,min=Math.min.apply(null,series),max=Math.max.apply(null,series),rng=(max-min)||1;
+    var col=status==="danger"?"var(--danger)":status==="caution"?"var(--caution)":"var(--go)";
+    var pts=series.map(function(v,i){ var x=pad+(i/(series.length-1))*(w-2*pad); var y=h-pad-((v-min)/rng)*(h-2*pad); return x.toFixed(1)+","+y.toFixed(1); }).join(" ");
+    var lx=pad+(w-2*pad), ly=h-pad-((series[series.length-1]-min)/rng)*(h-2*pad);
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="2.2" fill="'+col+'"/></svg>'; }
+  // Shared scrubbable history graph: wind (solid, status-coloured) + gust (dashed grey) over the last
+  // <span> h, even-hour ticks, caution/danger lines. Draws into `container`, returns an API to move a
+  // crosshair and read the nearest sample. Used by the map hover preview AND the big click-open graph.
+  function renderScrubGraph(container,s,W,H){
+    var spanH=state.sparkRange||12, cutoff=Date.now()-spanH*3600000;
+    var all=(s.hi||[]).filter(function(p){return p.t>=cutoff;});
+    if(all.length<2) all=(s.hi||[]).slice();
+    var mL=38,mR=12,mT=10,mB=22,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
+    if(all.length<2){ container.innerHTML='<div class="hgno" style="padding:16px 6px">no history yet</div>'; return null; }
+    var since=all[0].t,end=all[all.length-1].t,sp=(end-since)||1;
+    var maxY=1; all.forEach(function(p){ var g=disp(p.gust); if(g>maxY)maxY=g; }); maxY*=1.12;
+    function X(t){ return x0+(t-since)/sp*(x1-x0); }
+    function Y(v){ return y1-(v/maxY)*(y1-y0); }
+    var svg='<svg class="sg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="touch-action:none">',i,v,y;
+    for(i=0;i<=4;i++){ v=maxY*i/4; y=Y(v); svg+='<line x1="'+x0+'" y1="'+y.toFixed(1)+'" x2="'+x1+'" y2="'+y.toFixed(1)+'" stroke="var(--line)" stroke-width="1" opacity=".45"/><text x="'+(x0-5)+'" y="'+(y+3).toFixed(1)+'" fill="var(--ink-faint)" font-family="IBM Plex Mono" font-size="9.5" text-anchor="end">'+(state.unit==="ms"?v.toFixed(0):Math.round(v))+'</text>'; }
+    timeTicks(since,end).forEach(function(t){ var x=X(t),d=new Date(t); svg+='<line x1="'+x.toFixed(1)+'" y1="'+y0+'" x2="'+x.toFixed(1)+'" y2="'+y1+'" stroke="var(--line)" stroke-width="1" opacity=".22"/><text x="'+x.toFixed(1)+'" y="'+(y1+14)+'" fill="var(--ink-dim)" font-family="IBM Plex Mono" font-size="10" text-anchor="middle">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</text>'; });
+    var cD=knotsToDisp(state.caution),dD=knotsToDisp(state.danger);
+    if(cD<=maxY) svg+='<line x1="'+x0+'" y1="'+Y(cD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(cD).toFixed(1)+'" stroke="var(--caution)" stroke-width="1" stroke-dasharray="4 4" opacity=".5"/>';
+    if(dD<=maxY) svg+='<line x1="'+x0+'" y1="'+Y(dD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(dD).toFixed(1)+'" stroke="var(--danger)" stroke-width="1" stroke-dasharray="4 4" opacity=".5"/>';
+    function poly(key,dash,col){ var p=all.map(function(q){ return X(q.t).toFixed(1)+","+Y(disp(q[key])).toFixed(1); }).join(" "); return '<polyline points="'+p+'" fill="none" stroke="'+col+'" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"'+(dash?' stroke-dasharray="2 3"':'')+'/>'; }
+    var stx=statusOf(s.wind),wc=stx==="danger"?"var(--danger)":stx==="caution"?"var(--caution)":"var(--go)";
+    svg+=poly("gust",true,"#8fa6bd")+poly("wind",false,wc);
+    svg+='<line class="gc" y1="'+y0+'" y2="'+y1+'" stroke="var(--accent)" stroke-width="1" opacity="0"/><circle class="gdg" r="3" fill="#8fa6bd" opacity="0"/><circle class="gdw" r="3.8" fill="'+wc+'" opacity="0"/>';
+    svg+='</svg>';
+    container.innerHTML=svg;
+    var svgEl=container.querySelector("svg.sg"),gc=container.querySelector(".gc"),gdw=container.querySelector(".gdw"),gdg=container.querySelector(".gdg");
+    function showAt(t){ var best=all[0],bd=1e18; all.forEach(function(p){ var d=Math.abs(p.t-t); if(d<bd){bd=d;best=p;} }); var bx=X(best.t);
+      gc.setAttribute("x1",bx.toFixed(1)); gc.setAttribute("x2",bx.toFixed(1)); gc.setAttribute("opacity",".85");
+      gdw.setAttribute("cx",bx.toFixed(1)); gdw.setAttribute("cy",Y(disp(best.wind)).toFixed(1)); gdw.setAttribute("opacity","1");
+      gdg.setAttribute("cx",bx.toFixed(1)); gdg.setAttribute("cy",Y(disp(best.gust)).toFixed(1)); gdg.setAttribute("opacity","1"); return best; }
+    return { svgEl:svgEl, W:W, x0:x0, x1:x1, since:since, sp:sp,
+      scrubClientX:function(cx){ var r=svgEl.getBoundingClientRect(); var px=Math.max(x0,Math.min(x1,(cx-r.left)*(W/(r.width||W)))); return showAt(since+(px-x0)/(x1-x0)*sp); },
+      scrubFrac:function(f){ f=f<0?0:f>1?1:f; return showAt(since+f*sp); } };
+  }
+  function readoutHtml(best,u){ var d=new Date(best.t); return '<span class="grtime">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</span><span class="grw wind">wind <b>'+fmt(best.wind)+'</b> '+u+'</span><span class="grg">gust <b>'+fmt(best.gust)+'</b> '+u+'</span>'; }
+  function wireHoverGraph(){
+    var hg=document.getElementById("hoverGraph"); if(!hg)return;
+    var api=null, curEl=null;
+    function place(el){ var r=el.getBoundingClientRect(), w=hg.offsetWidth||400, h=hg.offsetHeight||220; var x=r.left; if(x+w>window.innerWidth-8)x=window.innerWidth-w-8; if(x<8)x=8; var y=r.top-h-10; if(y<8)y=r.bottom+10; hg.style.left=x+"px"; hg.style.top=y+"px"; }
+    document.addEventListener("mouseover",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var s=byId(g.getAttribute("data-graph")); if(!s)return;
+      hg.innerHTML='<div class="hgttl">'+escapeHtml(s.name)+'</div><div class="graphreadout hgread" id="hgRead"><span class="grtime">move across the mini-graph &rarr;</span></div><div class="hgbox" id="hgBox"></div>';
+      hg.style.display="block";
+      api=renderScrubGraph(document.getElementById("hgBox"), s, Math.min(440,(window.innerWidth||440)-24), 194); curEl=g; place(g); });
+    document.addEventListener("mousemove",function(e){ if(hg.style.display!=="block")return; var g=e.target.closest&&e.target.closest("[data-graph]"); if(g&&g===curEl&&api){ var r=g.getBoundingClientRect(); var best=api.scrubFrac((e.clientX-r.left)/(r.width||1)); var ro=document.getElementById("hgRead"); if(best&&ro)ro.innerHTML=readoutHtml(best,UNIT_LABEL[state.unit]); } else if(!g){ hg.style.display="none"; api=null; curEl=null; } });
+    document.addEventListener("mouseout",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var to=e.relatedTarget; if(to&&to.closest&&to.closest("[data-graph]")===g)return; hg.style.display="none"; api=null; curEl=null; });
+    // Click/tap a sparkline (list or card) to open the big scrubbable history graph.
+    document.addEventListener("click",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; hg.style.display="none"; e.stopPropagation(); openGraph(g.getAttribute("data-graph")); });
+  }
+  // Big scrubbable single-station history graph (opens in the modal). Move across it to read
+  // the wind + gust at any time in the last <span> hours.
+  function openGraph(id){
+    var s=byId(id); if(!s)return;
+    var modal=document.getElementById("modal"); modal.className="modal graphmodal";
+    var u=UNIT_LABEL[state.unit], spanH=state.sparkRange||12;
+    modal.innerHTML='<div class="mhead"><h3>'+escapeHtml(s.name)+' <span class="ghspan">last '+spanH+' h</span></h3><button class="close" data-close="1">✕</button></div>'
+      +'<div class="graphreadout" id="graphReadout"><span class="grtime">move across →</span><span class="grw wind">wind –</span><span class="grg">gust –</span></div>'
+      +'<div class="graphbox" id="graphBox"></div>';
+    document.getElementById("overlay").classList.add("open");
+    var box=document.getElementById("graphBox");
+    var W=Math.max(280,Math.min(760,(box.clientWidth||window.innerWidth-48)));
+    var H=Math.max(210,Math.min(360,Math.round((window.innerHeight||600)*0.44)));
+    var api=renderScrubGraph(box,s,W,H); if(!api)return;
+    var readout=document.getElementById("graphReadout");
+    function upd(best){ if(best&&readout)readout.innerHTML=readoutHtml(best,u); }
+    api.svgEl.style.cursor="crosshair";
+    api.svgEl.addEventListener("pointermove",function(e){ upd(api.scrubClientX(e.clientX)); });
+    api.svgEl.addEventListener("pointerdown",function(e){ upd(api.scrubClientX(e.clientX)); });
+  }
+  // Freshness by station age: live <1h, "not live" (orange) 1–24h, offline (red) >24h.
+  function freshTier(s){ if(!s.real)return "sample"; var a=ageMinOf(s); if(a==null)return "live"; if(a>1440)return "offline"; if(a>60)return "old"; return "live"; }
+  function badge(s){ var t=freshTier(s); if(t==="sample")return '<span class="samp">sample</span>'; if(t==="offline")return '<span class="boff">OFFLINE</span>'; if(t==="old")return '<span class="bstale">NOT&nbsp;LIVE</span>'; return '<span class="live">LIVE</span>'; }
+  // Even-hour-aligned time ticks across [since,end] for the history graphs.
+  function timeTicks(since,end){ var span=end-since; var stepH=span<=3*3600000?1:span<=16*3600000?2:4; var step=stepH*3600000; var d=new Date(since); d.setMinutes(0,0,0); d.setHours(d.getHours()-(d.getHours()%stepH)); var t=d.getTime(); if(t<since)t+=step; var out=[]; for(;t<=end && out.length<24;t+=step)out.push(t); if(!out.length)out.push(since,end); return out; }
+  function srcTag(s,cls){ if(s.web) return '<a class="'+cls+'" href="'+s.web+'" target="_blank" rel="noopener">'+s.src+'</a>'; return '<span class="'+cls+'">'+s.src+'</span>'; }
+  // Station title links to its source (skytech/ARSO/…) instead of a separate source button.
+  function nameLink(s,cls){ cls=cls||"name"; if(s.web) return '<a class="'+cls+'" href="'+s.web+'" target="_blank" rel="noopener" title="Source: '+escapeHtml(s.src||"")+'">'+escapeHtml(s.name)+'</a>'; return '<span class="'+cls+'">'+escapeHtml(s.name)+'</span>'; }
+  function popHtml(s){
+    var rows=state.lists.map(function(l){ var checked=inList(l,s.id)?"checked":""; var icon=l.builtin?"\u2605 ":""; return '<label class="opt"><input type="checkbox" data-toggle="'+l.id+'" '+checked+'>'+icon+escapeHtml(l.name)+'</label>'; }).join("");
+    return '<div class="pop" data-pop="'+s.id+'"><h4>Add to lists</h4>'+rows+'<div class="div"></div><div class="newrow"><input placeholder="New list\u2026" data-popnew="'+s.id+'"><button data-popadd="'+s.id+'">Add</button></div></div>'; }
+  // ---- gustiness + trend cues ----
+  // Gusty when the gust runs well above the mean (default: gust-minus-mean ≥ 4 m/s). The
+  // absolute spread matters more for flying than the ratio, so a light wind with a big spike
+  // still flags. Threshold in m/s; tune GUST_SPREAD_MS.
+  var GUST_SPREAD_MS = 4;
+  function gustSpreadMs(s){ return (s.gust==null||s.wind==null)?0:(s.gust - s.wind)/3.6; }
+  function isGusty(s){ return gustSpreadMs(s) >= GUST_SPREAD_MS; }
+  function gustyChip(s){ if(!isGusty(s)) return ''; return '<span class="gusty" title="Gust '+fmt(s.gust)+' vs mean '+fmt(s.wind)+' '+UNIT_LABEL[state.unit]+' — rough/gusty">GUSTY +'+fmt(s.gust-s.wind)+'</span>'; }
+  // Trend over the last ~hour of a station's own history: rising / falling / steady (±1 m/s/hr).
+  function windTrend(s){
+    if(!s.hi || s.hi.length<2) return 0;
+    var now=s.hi[s.hi.length-1].t, since=now-60*60000;
+    var w=s.hi.filter(function(p){return p.t>=since;}); if(w.length<2) w=s.hi.slice(-4);
+    if(w.length<2) return 0;
+    var h=Math.floor(w.length/2), e=0,ei=0,l=0,li=0;
+    w.forEach(function(p,i){ if(i<h){e+=p.wind;ei++;} else {l+=p.wind;li++;} });
+    if(!ei||!li) return 0;
+    var d=((l/li)-(e/ei))/3.6; return d>=1?1 : d<=-1?-1 : 0;
+  }
+  function trendChip(s){ var t=windTrend(s); if(t>0) return '<span class="trend t-up" title="wind building over the last hour">↑</span>'; if(t<0) return '<span class="trend t-dn" title="wind easing over the last hour">↓</span>'; return '<span class="trend t-flat" title="wind steady over the last hour">→</span>'; }
+
+  function cardHtml(s){
+    var st=statusOf(s.wind), gs=statusOf(s.gust), u=UNIT_LABEL[state.unit];
+    var ser=sparkSeries(s), mn=Math.min.apply(null,ser), mx=Math.max.apply(null,ser);
+    return '<div class="card" data-id="'+s.id+'" draggable="true"><div class="head"><div>'+
+      '<div class="nrow"><span class="drag" title="Drag to reorder">\u2630</span>'+
+      nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+badge(s)+'<span class="upd">'+updatedStr(s)+'</span></div></div>'+
+      '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'<button class="mini" data-lists="'+s.id+'">\u2630 Lists</button></div></div>'+
+      '<div class="cbody"><div class="cinfo">'+compassSvg(s.dir)+
+      '<div><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span>'+trendChip(s)+'<span class="dir-inline">from '+Math.round(s.dir)+'\u00b0 '+compass(s.dir)+'</span></div>'+
+      '<div class="ministats">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+' &middot; '+s.temp+'\u00b0</div></div></div>'+
+      '<div class="cchart" data-graph="'+s.id+'" title="hover for full graph">'+sparkSvg(ser,st,132,40)+'<div class="sparklab">'+(state.sparkRange||12)+'&#8202;h &middot; min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
+      (openPop===s.id?popHtml(s):"")+'</div>'; }
+  function renderCards(vis){
+    var wrap=document.getElementById("cards");
+    if(!vis.length){ wrap.innerHTML='<div class="sparklab" style="text-align:center;padding:30px 6px;font-size:13px">This list is empty. Open a station\u2019s \u2630 Lists and tick it in, or star it.</div>'; }
+    else{ wrap.innerHTML=vis.map(cardHtml).join(""); }
+  }
+
+  // ---- table view ----
+  var COLS=[{key:"name",label:"Station"},{key:"dir",label:"Dir"},{key:"wind",label:"Wind"},{key:"gust",label:"Gust"},{key:"temp",label:"Temp"},{key:"updated",label:"Updated"}];
+  function dirMini(dir){ var rot=(dir+180); return '<span class="dirmini"><svg width="21" height="21" viewBox="0 0 21 21"><g style="transform:rotate('+rot+'deg);transform-origin:10.5px 10.5px"><path d="M10.5 2.5 L14 13.5 L10.5 11 L7 13.5 Z" fill="var(--accent)"/></g></svg>'+compass(dir)+' '+Math.round(dir)+'\u00b0</span>'; }
+  function sortVal(s,key){ if(key==="name")return s.name.toLowerCase(); if(key==="dir")return s.dir; if(key==="wind")return s.wind; if(key==="gust")return s.gust; if(key==="temp")return s.temp; if(key==="updated")return ageMinOf(s); return 0; }
+  function renderTable(vis){
+    var u=UNIT_LABEL[state.unit];
+    var custOn=state.sortKey==="custom";
+    document.getElementById("thead").innerHTML='<tr><th class="rdh'+(custOn?" sorted":"")+'" data-sort="custom" title="your order (drag rows to change)"></th>'+COLS.map(function(c){ var on=state.sortKey===c.key; var ar=on?(state.sortDir<0?'\u25bc':'\u25b2'):''; return '<th class="'+(on?"sorted":"")+'" data-sort="'+c.key+'">'+c.label+' <span class="ar">'+ar+'</span></th>'; }).join("")+'<th>'+(state.sparkRange||12)+'&#8202;h</th></tr>';
+    var rows=vis.slice();
+    if(!custOn){ rows.sort(function(a,b){ var av=sortVal(a,state.sortKey),bv=sortVal(b,state.sortKey); if(av<bv)return -1*state.sortDir; if(av>bv)return 1*state.sortDir; return 0; }); }
+    var tb=document.getElementById("tbody");
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
+    tb.innerHTML=rows.map(function(s){ var ws=statusOf(s.wind), gs=statusOf(s.gust); var pos=state.order.indexOf(s.id)+1; var shown=!state.mapHidden[s.id];
+      return '<tr data-id="'+s.id+'"><td class="rowdrag" data-rowdrag="'+s.id+'" title="Drag to reorder">☰</td>'+
+        '<td class="name">'+nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+badge(s)+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
+        '<td>'+dirMini(s.dir)+'</td>'+
+        '<td class="w-'+ws+'">'+fmt(s.wind)+' '+u+' '+trendChip(s)+'</td>'+
+        '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+(isGusty(s)?' <span class="gusty sm" title="gusty">GUSTY</span>':'')+'</td>'+
+        '<td>'+s.temp+'\u00b0</td>'+
+        '<td>'+updatedStr(s)+'</td>'+
+        '<td class="spark" data-graph="'+s.id+'" title="hover for full graph">'+sparkSvg(sparkSeries(s),ws,84,22)+'</td>'+
+        '</tr>'; }).join("");
+  }
+
+  // ---- chart view ----
+  function computeMaxY(){ var m=1; visibleStations().forEach(function(s){ s.hi.forEach(function(p){ var a=disp(p.wind), b=disp(p.gust); if(a>m)m=a; if(b>m)m=b; }); }); return m*1.1; }
+  function tickStepH(range){ return range<=2?0.5:range<=6?1:range<=12?2:4; }
+  function renderChart(){
+    var wrap=document.getElementById("chartwrap");
+    var all=visibleStations(), range=state.chartRange, since=Date.now()-range*3600000, now=Date.now(), metric=state.chartMetric, u=UNIT_LABEL[state.unit];
+    document.getElementById("chartlegend").innerHTML=all.map(function(s){ var off=state.chartHidden[s.id]?"off":""; return '<span class="lchip '+off+'" data-legend="'+s.id+'"><span class="dot" style="background:'+colorFor(s)+'"></span>'+escapeHtml(s.name)+'</span>'; }).join("");
+    var rows=all.map(function(s){ var pts=s.hi.filter(function(p){return p.t>=since;}).map(function(p){ return {t:p.t, wind:disp(p.wind), gust:disp(p.gust)}; }); return {s:s, pts:pts}; });
+    var maxY=computeMaxY();
+    var W=1000,H=420,mL=46,mR=64,mT=14,mB=28,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
+    function X(t){ return x0+(t-since)/(now-since)*(x1-x0); }
+    function Y(v){ return y1-(v/maxY)*(y1-y0); }
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+    var i;
+    for(i=0;i<=4;i++){ var v=maxY*i/4, y=Y(v); svg+='<line x1="'+x0+'" y1="'+y.toFixed(1)+'" x2="'+x1+'" y2="'+y.toFixed(1)+'" stroke="#22324a" stroke-width="1"/><text x="'+(x0-6)+'" y="'+(y+3).toFixed(1)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11" text-anchor="end">'+(state.unit==="ms"?v.toFixed(1):Math.round(v))+'</text>'; }
+    var stepMs=tickStepH(range)*3600000, first=Math.ceil(since/stepMs)*stepMs;
+    for(var t=first;t<=now;t+=stepMs){ var x=X(t), d=new Date(t); svg+='<line x1="'+x.toFixed(1)+'" y1="'+y0+'" x2="'+x.toFixed(1)+'" y2="'+y1+'" stroke="#1b2a3e" stroke-width="1"/><text x="'+x.toFixed(1)+'" y="'+(y1+16)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</text>'; }
+    var cD=knotsToDisp(state.caution), dD=knotsToDisp(state.danger);
+    if(cD<=maxY){ svg+='<line x1="'+x0+'" y1="'+Y(cD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(cD).toFixed(1)+'" stroke="var(--caution)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>'; }
+    if(dD<=maxY){ svg+='<line x1="'+x0+'" y1="'+Y(dD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(dD).toFixed(1)+'" stroke="var(--danger)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>'; }
+    function poly(pts,key,dash,col){ if(pts.length<2)return""; var p=pts.map(function(q){ return X(q.t).toFixed(1)+","+Y(q[key]).toFixed(1); }).join(" "); return '<polyline points="'+p+'" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linejoin="round"'+(dash?' stroke-dasharray="2 4"':'')+'/>'; }
+    rows.forEach(function(r){ if(state.chartHidden[r.s.id]||!r.pts.length)return; var col=colorFor(r.s);
+      if(metric==="wind"||metric==="both"){ svg+=poly(r.pts,"wind",false,col); }
+      if(metric==="gust"){ svg+=poly(r.pts,"gust",false,col); }
+      if(metric==="both"){ svg+=poly(r.pts,"gust",true,col); }
+      var lp=r.pts[r.pts.length-1], lk=(metric==="gust")?"gust":"wind", lx=X(lp.t), ly=Y(lp[lk]);
+      svg+='<text x="'+(lx+4).toFixed(1)+'" y="'+(ly+3).toFixed(1)+'" fill="'+col+'" font-family="IBM Plex Sans" font-size="12" font-weight="600" text-anchor="start">'+escapeHtml(r.s.name)+'</text>'; });
+    svg+='<text x="'+x0+'" y="'+(y0-3)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11">'+(metric==="gust"?"gusts":metric==="both"?"wind (solid) + gusts (dotted)":"wind")+' ('+u+')</text>';
+    svg+='</svg><div class="chair" id="chair"></div><div class="ctip" id="ctip"></div>';
+    wrap.innerHTML=svg;
+    lastChart={since:since,now:now,x0:x0,x1:x1,W:W,rows:rows};
+  }
+
+  function chartMove(e){
+    if(!lastChart)return; var wrap=document.getElementById("chartwrap"); var rect=wrap.getBoundingClientRect();
+    var px=e.clientX-rect.left; var vbX=px/rect.width*lastChart.W;
+    var chair=document.getElementById("chair"), tip=document.getElementById("ctip");
+    if(vbX<lastChart.x0||vbX>lastChart.x1){ if(chair)chair.style.display="none"; if(tip)tip.style.display="none"; return; }
+    var t=lastChart.since+(vbX-lastChart.x0)/(lastChart.x1-lastChart.x0)*(lastChart.now-lastChart.since);
+    var vis=lastChart.rows.filter(function(r){ return !state.chartHidden[r.s.id] && r.pts.length; });
+    if(!vis.length){ if(chair)chair.style.display="none"; if(tip)tip.style.display="none"; return; }
+    var ref=vis[0].pts, bi=0, bd=Infinity; for(var i=0;i<ref.length;i++){ var dd=Math.abs(ref[i].t-t); if(dd<bd){bd=dd;bi=i;} }
+    var T=ref[bi].t; var snapX=(lastChart.x0+(T-lastChart.since)/(lastChart.now-lastChart.since)*(lastChart.x1-lastChart.x0))/lastChart.W*rect.width;
+    if(chair){ chair.style.display="block"; chair.style.left=snapX.toFixed(1)+"px"; }
+    var u=UNIT_LABEL[state.unit], d=new Date(T);
+    var body='<div class="th">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</div>';
+    vis.forEach(function(r){ var p=r.pts[bi]||r.pts[r.pts.length-1]; var col=colorFor(r.s);
+      body+='<div class="cr"><span class="nm"><span class="dot" style="background:'+col+'"></span>'+escapeHtml(r.s.name)+'</span><span class="vv">'+(state.unit==="ms"?p.wind.toFixed(1):Math.round(p.wind))+' <span style="color:var(--ink-faint)">g'+(state.unit==="ms"?p.gust.toFixed(1):Math.round(p.gust))+'</span> '+u+'</span></div>'; });
+    tip.innerHTML=body; tip.style.display="block";
+    var tw=tip.offsetWidth||170; var left=snapX+14; if(left+tw>rect.width) left=snapX-tw-14; if(left<4)left=4;
+    tip.style.left=left.toFixed(1)+"px"; tip.style.top="12px";
+  }
+  function chartLeave(){ var c=document.getElementById("chair"), t=document.getElementById("ctip"); if(c)c.style.display="none"; if(t)t.style.display="none"; }
+
+  function render(){ var vis=visibleStations();
+    if(state.view==="map"){ renderCards(vis); renderMarkers(vis); }
+    else if(state.view==="list"){ renderTable(vis); }
+    else if(state.view==="cams"){ renderCams(); }
+    else{ renderChart(); }
+  }
+
+  // ---- Cams view: image grid (newest frame) + 24h timelapse scrubber ----
+  // Frames are captured every ~3 min by the GitHub loop into the `camstore` branch and served
+  // from raw.githubusercontent (no ads, fully in-app). cams-latest.json = newest frame per cam;
+  // cams/manifest.json = the rolling 24h list the scrubber scrolls through.
+  var LIVE_BASE="https://raw.githubusercontent.com/pangbom/pmw/camstore/";
+  // raw.githubusercontent throttles/aborts image requests, so the browser often gets a half-
+  // downloaded (grey-bottom) frame and then caches it. We serve frame images through the wsrv.nl
+  // image CDN instead: it fetches each frame from GitHub once on its own servers, caches it, and
+  // returns a complete image every time. `w` requests a downscaled copy (thumbnails). On any wsrv
+  // failure the <img> onerror handler falls back to the direct raw URL once.
+  function camSrc(path,w){ var raw=LIVE_BASE+path; return "https://wsrv.nl/?url="+encodeURIComponent(raw)+"&output=jpg&maxage=1d"+(w?("&w="+w+"&fit=cover&we"):""); }
+  function camImgErr(el){ if(el.getAttribute("data-fb")){ el.style.display="none"; return; } el.setAttribute("data-fb","1"); var p=el.getAttribute("data-raw"); if(p) el.src=p; else el.style.display="none"; }
+  window.camImgErr=camImgErr;   // inline onerror runs in global scope
+  // BULLETPROOF cam images. Some STORED frames are complete JPEGs whose bottom band is baked flat
+  // grey (a truncated source got re-encoded whole upstream). So we can't trust bytes alone: we fetch
+  // each candidate frame, verify it's a complete JPEG, DECODE it and reject a flat mid-grey band,
+  // then walk back to the newest CLEAN frame. A grey frame never reaches the screen.
+  function camWsrv(path,w,bust){ var raw=LIVE_BASE+path+(bust?((LIVE_BASE+path).indexOf("?")<0?"?":"&")+"cb="+bust:""); return "https://wsrv.nl/?url="+encodeURIComponent(raw)+"&output=jpg"+(w?("&w="+w+"&fit=cover&we"):"")+"&maxage=1d"; }
+  function jpegOk(b){ if(b.length<2500||b[0]!==0xFF||b[1]!==0xD8)return false; for(var i=b.length-2;i>=Math.max(2,b.length-64);i--){ if(b[i]===0xFF&&b[i+1]===0xD9)return true; } return false; }
+  // Decode the frame and test the bottom band: flat (low variance) + mid-grey (~128) = the grey bug.
+  // Genuine haze/cloud/snow/night has real variance or a non-grey mean, so it passes.
+  function greyBad(ab){ return new Promise(function(res){ try{
+    if(!window.createImageBitmap) return res(false);
+    createImageBitmap(new Blob([ab],{type:"image/jpeg"})).then(function(bm){
+      var w=48,h=Math.max(8,Math.round(48*bm.height/(bm.width||1)));
+      var cv=greyBad._cv||(greyBad._cv=document.createElement("canvas")); cv.width=w; cv.height=h;
+      var cx=cv.getContext("2d"); cx.drawImage(bm,0,0,w,h); if(bm.close)bm.close();
+      var y0=Math.floor(h*0.6), d=cx.getImageData(0,y0,w,h-y0).data, s=0, vals=[];
+      for(var i=0;i<d.length;i+=4){ var L=(d[i]+d[i+1]+d[i+2])/3; vals.push(L); s+=L; }
+      var m=s/vals.length, v=0; vals.forEach(function(x){ v+=(x-m)*(x-m); }); var sd=Math.sqrt(v/vals.length);
+      res(sd<6 && m>95 && m<165);
+    }, function(){ res(false); });
+  }catch(e){ res(false); } }); }
+  // cands = frame paths newest→oldest. Show the first complete, non-grey one.
+  function loadCamPic(imgEl,cands,w){ if(!imgEl)return; if(typeof cands==="string")cands=[cands]; cands=(cands||[]).filter(Boolean); if(!cands.length){ imgEl.style.display="none"; return; }
+    var token=(imgEl._tok=(imgEl._tok||0)+1);
+    function show(ab){ if(imgEl._tok!==token)return; var old=imgEl._blob; var url=URL.createObjectURL(new Blob([ab],{type:"image/jpeg"})); imgEl._blob=url; imgEl.style.display=""; imgEl.src=url; if(old)try{URL.revokeObjectURL(old);}catch(_){} }
+    function tryIdx(ci,att){ if(imgEl._tok!==token)return; if(ci>=cands.length){ imgEl.style.display="none"; return; }
+      fetch(camWsrv(cands[ci],w,att>0?(Date.now()+"_"+att):0),{cache:att>0?"reload":"default"})
+        .then(function(r){ if(!r.ok)throw 0; return r.arrayBuffer(); })
+        .then(function(ab){ if(imgEl._tok!==token)return; if(!jpegOk(new Uint8Array(ab))){ if(att<2)return void setTimeout(function(){tryIdx(ci,att+1);},250*(att+1)); return tryIdx(ci+1,0); }
+          greyBad(ab).then(function(bad){ if(imgEl._tok!==token)return; if(bad)tryIdx(ci+1,0); else show(ab); }); })
+        .catch(function(){ if(imgEl._tok!==token)return; if(att<2)setTimeout(function(){tryIdx(ci,att+1);},250*(att+1)); else tryIdx(ci+1,0); });
+    }
+    tryIdx(0,0);
+  }
+  // Build candidate list (newest→older) for a cam from the manifest, falling back to data-path.
+  function camCandsFor(id,fallback){ var fr=camFramesFor(id); if(fr.length) return fr.slice(-8).reverse().map(function(f){return f.f;}); return fallback?[fallback]:[]; }
+  function hydrateCamPics(root){ (root||document).querySelectorAll(".pic[data-pic]").forEach(function(el){ loadCamPic(el, camCandsFor(el.getAttribute("data-pic"), el.getAttribute("data-path")), +el.getAttribute("data-w")||0); }); }
+  var CAMS_LATEST=[], CAM_MANIFEST=null, scrub={id:null,frames:[],i:0,playing:false,timer:null,cache:{},ready:{},ptok:0};
+  // Verified cam altitudes (m) — shown after the name. Blank where not confirmed. (JB can correct.)
+  var CAM_ALT={ s53_bovec:460, s53_kanin:2200, s53_stol:1600, s53_stoln:1600, s53_kuk:1100, s53_crnaprst:1770, arso_kredarica_e:2514, arso_kredarica_se:2514, dars_predel:1156, si_logmangart01:650, windy_bovec_e:460, windy_bovec_w:460, bfx_kanin_skalar:2260, bfx_kanin_sedlo:2260 };
+
+  function renderCams(){
+    var note=document.getElementById("camnote"); if(note)note.hidden=true;
+    var grid=document.getElementById("camgrid");
+    if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Loading cams…</div>';
+    fetch(LIVE_BASE+"cams-latest.json?ts="+Date.now(),{cache:"no-store"})
+      .then(function(r){ if(!r.ok)throw 0; return r.json(); })
+      .then(function(j){ CAMS_LATEST=j.cams||[]; paintCamGrid(); })
+      .catch(function(){ if(!CAMS_LATEST.length) grid.innerHTML='<div class="camnote" style="grid-column:1/-1">Cams are warming up — first frames appear within a few minutes.</div>'; });
+    // Manifest powers the per-tile timelines; repaint once it arrives.
+    fetch(LIVE_BASE+"cams/manifest.json?ts="+Date.now(),{cache:"no-store"})
+      .then(function(r){ if(!r.ok)throw 0; return r.json(); })
+      .then(function(j){ CAM_MANIFEST=j; if(CAMS_LATEST.length)paintCamGrid(); })
+      .catch(function(){});
+  }
+  function camFramesFor(id){ if(!CAM_MANIFEST||!CAM_MANIFEST.cams)return []; var c=CAM_MANIFEST.cams.filter(function(x){return x.id===id;})[0]; return (c&&c.frames)?c.frames:[]; }
+  function camName(c){ return (state.camNames&&state.camNames[c.id]) || c.name; }
+  function camIsActive(c){ return !!(c.latest && c.t && (Date.now()-c.t) < 90*60000); }
+  function orderedCams(){
+    var byId={}; CAMS_LATEST.forEach(function(c){ byId[c.id]=c; });
+    var ids=(state.camOrder||[]).filter(function(id){ return byId[id]; });
+    CAMS_LATEST.forEach(function(c){ if(ids.indexOf(c.id)<0) ids.push(c.id); });
+    return ids.map(function(id){ return byId[id]; });
+  }
+  function camTile(c){
+    var nm=camName(c), frames=camFramesFor(c.id);
+    var img=c.latest?('<img class="pic" data-pic="'+c.id+'" data-path="'+c.latest+'" data-w="480" loading="lazy" alt="'+escapeHtml(nm)+'">'):'<div class="ph">no frame yet</div>';
+    var tl = frames.length>1
+      ? '<div class="tlrow"><input type="range" class="tlslider" draggable="false" data-tl="'+c.id+'" min="0" max="'+(frames.length-1)+'" value="'+(frames.length-1)+'"><span class="tlt" data-tlt="'+c.id+'">'+fmtClock(frames[frames.length-1].t)+' · now</span></div>'
+      : '';
+    return '<div class="camtile" data-cam="'+c.id+'">'+
+      '<div class="camframe2">'+img+'<div class="hovname">'+escapeHtml(nm)+'</div>'+
+        '<div class="tbtns"><span class="tbtn camdrag" data-camdrag="'+c.id+'" title="Drag to reorder">⠿</span><button class="tbtn" data-hide="'+c.id+'" title="Hide cam">✕</button></div></div>'+
+      tl+
+      '<div class="cap"><div class="nm" data-camname="'+c.id+'" title="Double-click to rename">'+escapeHtml(nm)+(CAM_ALT[c.id]?' <span class="camalt">'+elevStr(CAM_ALT[c.id])+'</span>':'')+'</div>'+
+      (c.t?'<span class="live">'+camAge(c.t)+'</span>':'<span class="live off">offline</span>')+'</div></div>';
+  }
+  function paintCamGrid(){
+    var grid=document.getElementById("camgrid");
+    if(!CAMS_LATEST.length){ grid.innerHTML='<div class="camnote">No cams yet.</div>'; return; }
+    var ord=orderedCams();
+    var visible=ord.filter(function(c){ return !(state.camHidden&&state.camHidden[c.id]); });
+    var hidden=ord.filter(function(c){ return state.camHidden&&state.camHidden[c.id]; });
+    var active=visible.filter(camIsActive), inactive=visible.filter(function(c){ return !camIsActive(c); });
+    var html='<div class="collage">'+active.map(camTile).join("");
+    if(inactive.length) html+='<div class="camdivider">Inactive / offline</div>'+inactive.map(camTile).join("");
+    if(hidden.length) html+='<div class="camhidden">Hidden: '+hidden.map(function(c){ return '<span class="chip" data-unhide="'+c.id+'">'+escapeHtml(camName(c))+' ↩</span>'; }).join("")+'</div>';
+    grid.innerHTML=html+'</div>';
+    hydrateCamPics(grid);
+  }
+  function camAge(t){ var m=Math.round((Date.now()-t)/60000); if(m<=2)return'● LIVE'; return (m<60?m+'m':Math.round(m/60)+'h')+' ago'; }
+  function startCamRename(id){
+    var el=document.querySelector('.nm[data-camname="'+id+'"]'); if(!el)return;
+    el.setAttribute("contenteditable","true"); el.focus();
+    var range=document.createRange(); range.selectNodeContents(el); var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    function finish(save){ el.removeAttribute("contenteditable");
+      if(save){ var v=el.textContent.trim(); var c=CAMS_LATEST.filter(function(x){return x.id===id;})[0];
+        if(v && c && v!==c.name){ state.camNames[id]=v; } else { delete state.camNames[id]; }
+        persist(); }
+      paintCamGrid(); }
+    el.addEventListener("blur",function(){ finish(true); }, {once:true});
+    el.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); el.blur(); } else if(e.key==="Escape"){ el.textContent=camName(CAMS_LATEST.filter(function(x){return x.id===id;})[0]); el.blur(); } });
+  }
+
+  function openCam(id){
+    var c=CAMS_LATEST.filter(function(x){return x.id===id;})[0]; if(!c)return;
+    document.getElementById("modal").className="modal cammodal";
+    document.getElementById("modal").innerHTML=
+      '<div class="mhead"><h3>'+escapeHtml(c.name)+' <span style="color:var(--ink-faint);font-weight:400;font-size:13px">· '+escapeHtml(c.area)+'</span></h3><button class="close" data-close="1">✕</button></div>'+
+      '<div class="camframe big"><img id="scrubImg" alt="'+escapeHtml(c.name)+'"><div class="scrubtime" id="scrubTime">loading…</div><div class="scrubload" id="scrubLoad" hidden></div></div>'+
+      '<div class="scrubbar">'+
+        '<button class="sbtn" id="scrubPlay" title="Play timelapse">▶</button>'+
+        '<input type="range" id="scrubSlider" min="0" max="0" value="0" step="1">'+
+        '<button class="sbtn" id="scrubLive" title="Jump to now">live</button>'+
+      '</div>';
+    document.getElementById("overlay").classList.add("open");
+    revokeScrubCache();
+    scrub={id:id,frames:[],i:0,playing:false,timer:null,cache:{},ready:{},ptok:0};
+    if(c.latest) loadCamPic(document.getElementById("scrubImg"), camCandsFor(id,c.latest), 0);
+    wireScrub();
+    loadScrubFrames(id);
+  }
+  function loadScrubFrames(id){
+    var use=function(){ if(scrub.id!==id)return;
+      var cam=(CAM_MANIFEST&&CAM_MANIFEST.cams||[]).filter(function(x){return x.id===id;})[0];
+      var frames=cam?cam.frames:[];
+      scrub.frames=frames; scrub.i=frames.length?frames.length-1:0;
+      var sl=document.getElementById("scrubSlider"); if(sl){ sl.max=Math.max(0,frames.length-1); sl.value=scrub.i; }
+      var meta=document.getElementById("scrubMeta");
+      if(meta) meta.textContent=frames.length?(frames.length+' frames · spans '+spanHrs(frames)+' · drag to scrub, ▶ to play'):'No history yet — frames build up over the next hour.';
+      showScrub(scrub.i);
+      preloadSpan();
+    };
+    if(CAM_MANIFEST) use();
+    fetch(LIVE_BASE+"cams/manifest.json?ts="+Date.now(),{cache:"no-store"})
+      .then(function(r){ if(!r.ok)throw 0; return r.json(); })
+      .then(function(j){ CAM_MANIFEST=j; use(); })
+      .catch(function(){ if(!CAM_MANIFEST){ var meta=document.getElementById("scrubMeta"); if(meta)meta.textContent='History unavailable right now.'; } });
+  }
+  function spanHrs(frames){ if(frames.length<2)return'—'; var h=(frames[frames.length-1].t-frames[0].t)/3600000; return h>=1?h.toFixed(1)+'h':Math.round(h*60)+'m'; }
+  function setImgFast(img,url){ img._tok=(img._tok||0)+1; var old=img._blob; img._blob=null; img.style.display=""; img.src=url; if(old)try{URL.revokeObjectURL(old);}catch(_){} }
+  function showScrub(i){
+    var f=scrub.frames[i]; if(!f)return;
+    var img=document.getElementById("scrubImg");
+    if(img){
+      var url=null;
+      if(scrub.cache[i]) url=scrub.cache[i];
+      else if(scrub.ready[i]===false){ for(var k=i-1;k>=Math.max(0,i-24);k--){ if(scrub.cache[k]){ url=scrub.cache[k]; break; } } }
+      if(url){ setImgFast(img,url); }
+      else { var cds=[]; for(var k2=i;k2>=Math.max(0,i-7);k2--){ if(scrub.frames[k2])cds.push(scrub.frames[k2].f); } loadCamPic(img,cds,0); }
+    }
+    var t=document.getElementById("scrubTime"); if(t)t.textContent=fmtClock(f.t)+(i===scrub.frames.length-1?' · newest':'');
+  }
+  function revokeScrubCache(){ try{ if(scrub&&scrub.cache){ for(var k in scrub.cache){ try{URL.revokeObjectURL(scrub.cache[k]);}catch(_){} } } if(scrub){ scrub.ptok=(scrub.ptok||0)+1; scrub.cache={}; scrub.ready={}; } }catch(_){} }
+  // Preload every frame within the chosen graph-span window so scrubbing across it is instant. Each frame
+  // is fetched + grey-checked once and cached as a blob URL; a thin bar shows progress. Frames outside the
+  // window (or not cached yet) fall back to on-demand network load in showScrub, so nothing breaks mid-load.
+  function preloadSpan(){
+    var frames=scrub.frames||[]; var bar=document.getElementById("scrubLoad");
+    if(frames.length<2){ if(bar)bar.hidden=true; return; }
+    var spanH=state.sparkRange||12, cutoff=Date.now()-spanH*3600000;
+    var idxs=[]; for(var a=0;a<frames.length;a++){ if(frames[a].t>=cutoff) idxs.push(a); }
+    if(idxs.length<2){ idxs=[]; for(var b=Math.max(0,frames.length-12);b<frames.length;b++) idxs.push(b); }
+    idxs.reverse();
+    var tok=scrub.ptok, total=idxs.length, done=0, POOL=5, qi=0;
+    if(bar){ bar.hidden=false; bar.style.width="0%"; }
+    function prog(){ if(scrub.ptok!==tok)return; if(bar){ bar.style.width=Math.round(done/total*100)+"%"; if(done>=total)setTimeout(function(){ if(scrub.ptok===tok&&bar)bar.hidden=true; },450); } }
+    function one(idx,cb){
+      if(scrub.cache[idx]||scrub.ready[idx]===false) return cb();
+      fetch(camWsrv(frames[idx].f,0,0),{cache:"default"})
+        .then(function(r){ if(!r.ok)throw 0; return r.arrayBuffer(); })
+        .then(function(ab){ if(scrub.ptok!==tok)return cb();
+          if(!jpegOk(new Uint8Array(ab))){ scrub.ready[idx]=false; return cb(); }
+          greyBad(ab).then(function(bad){ if(scrub.ptok!==tok)return cb();
+            if(bad){ scrub.ready[idx]=false; } else { scrub.cache[idx]=URL.createObjectURL(new Blob([ab],{type:"image/jpeg"})); scrub.ready[idx]=true; }
+            cb(); }); })
+        .catch(function(){ if(scrub.ptok!==tok)return cb(); scrub.ready[idx]=false; cb(); });
+    }
+    function worker(){ if(scrub.ptok!==tok)return; if(qi>=idxs.length)return; var idx=idxs[qi++]; one(idx,function(){ done++; prog(); worker(); }); }
+    for(var w2=0;w2<Math.min(POOL,idxs.length);w2++) worker();
+  }
+  function fmtClock(epoch){ var d=new Date(epoch); return d.toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'}); }
+  function wireScrub(){
+    var sl=document.getElementById("scrubSlider"), play=document.getElementById("scrubPlay"), live=document.getElementById("scrubLive");
+    if(sl)sl.addEventListener("input",function(){ scrub.i=+sl.value; stopScrub(); showScrub(scrub.i); });
+    if(play)play.addEventListener("click",toggleScrub);
+    if(live)live.addEventListener("click",function(){ stopScrub(); scrub.i=Math.max(0,scrub.frames.length-1); var s=document.getElementById("scrubSlider"); if(s)s.value=scrub.i; showScrub(scrub.i); });
+  }
+  function toggleScrub(){ scrub.playing?stopScrub():startScrub(); }
+  function startScrub(){ if(scrub.frames.length<2)return; scrub.playing=true; var p=document.getElementById("scrubPlay"); if(p)p.textContent="❚❚";
+    scrub.timer=setInterval(function(){ scrub.i++; if(scrub.i>=scrub.frames.length)scrub.i=0; var sl=document.getElementById("scrubSlider"); if(sl)sl.value=scrub.i; showScrub(scrub.i); },400); }
+  function stopScrub(){ scrub.playing=false; if(scrub.timer){ clearInterval(scrub.timer); scrub.timer=null; } var p=document.getElementById("scrubPlay"); if(p)p.textContent="▶"; }
+
+  // ---- wind-barb markers (style: "Open pennants" — long thin staff, hollow 50-kt pennants) ----
+  // Barb colours flip with the basemap so they stay legible: light ink on dark maps, dark ink on light/terrain maps.
+  function barbColors(){ var lightBase=(state.basemap==="light"||state.basemap==="terrain"); return lightBase?{fg:"#0b1119",halo:"#ffffff"}:{fg:"#ffffff",halo:"#0b1119"}; }
+  function drawPrims(prim,color,w){ return prim.map(function(p){ if(p.t==="line") return '<line x1="'+p.x1.toFixed(1)+'" y1="'+p.y1.toFixed(1)+'" x2="'+p.x2.toFixed(1)+'" y2="'+p.y2.toFixed(1)+'" stroke="'+color+'" stroke-width="'+w.toFixed(2)+'" stroke-linecap="round"/>'; return '<polygon points="'+p.pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1);}).join(" ")+'" fill="none" stroke="'+color+'" stroke-width="'+w.toFixed(2)+'" stroke-linejoin="round"/>'; }).join(""); }
+  function barbGroup(kt,fg,halo){
+    var sc=state.barbScale||1, L=26*sc, bl=8*sc, sp=3.6*sc; var spd=Math.round(kt/5)*5; if(spd<2.5) return "";
+    var pen=Math.floor(spd/50), rem=spd-pen*50, full=Math.floor(rem/10), half=Math.floor((rem-full*10)/5);
+    var prim=[]; prim.push({t:"line",x1:0,y1:0,x2:0,y2:-L}); var pos=L, i;
+    for(i=0;i<pen;i++){ prim.push({t:"poly",pts:[[0,-pos],[0,-(pos-sp*1.7)],[-bl,-(pos-sp*0.85)]]}); pos-=sp*1.95; }
+    for(i=0;i<full;i++){ prim.push({t:"line",x1:0,y1:-pos,x2:-bl,y2:-(pos-bl*0.5)}); pos-=sp; }
+    for(i=0;i<half;i++){ if(pen===0&&full===0){ pos-=sp; } prim.push({t:"line",x1:0,y1:-pos,x2:-bl*0.5,y2:-(pos-bl*0.25)}); pos-=sp; }
+    return drawPrims(prim,halo,3.0*sc)+drawPrims(prim,fg,1.1*sc);
+  }
+  function arrowGroup(kt,fg,halo){
+    var sc=state.barbScale||1; if(kt<2.5) return "";
+    var len=(15+Math.min(kt,45)*0.85)*sc, hw=4.6*sc, hb=len-hw*1.8;
+    var prim=[{t:"line",x1:0,y1:0,x2:0,y2:-len},{t:"line",x1:0,y1:-len,x2:-hw,y2:-hb},{t:"line",x1:0,y1:-len,x2:hw,y2:-hb}];
+    return drawPrims(prim,halo,3.2*sc)+drawPrims(prim,fg,1.3*sc);
+  }
+  function windMarkerHtml(s){
+    var kt=knots(s.wind), gkt=knots(s.gust), calm=kt<2.5, col=barbColors();
+    var mtier=freshTier(s);
+    if(mtier==="old") col={fg:"#f2a63d",halo:col.halo};      // stale >1h → orange barb
+    else if(mtier==="offline") col={fg:"#f2564a",halo:col.halo}; // >24h → red barb
+    var isArrow=(state.indicator==="arrow");
+    var ind=isArrow?arrowGroup(kt,col.fg,col.halo):barbGroup(kt,col.fg,col.halo);
+    // Gust barbs (amber) sit behind the wind barb; the extra gust feathers stick out past the
+    // wind barb. Hidden until the marker is hovered (revealed via .wm.hl in CSS).
+    var gustInd=(calm||gkt<2.5)?"":('<g class="gustbarb">'+(isArrow?arrowGroup(gkt,GUSTCOL,col.halo):barbGroup(gkt,GUSTCOL,col.halo))+'</g>');
+    var r=(calm?5.2*(state.calmScale||1):2.6*(state.barbScale||1));
+    var ring='<circle cx="0" cy="0" r="'+r.toFixed(1)+'" fill="'+col.halo+'" stroke="'+col.halo+'" stroke-width="2.8"/><circle cx="0" cy="0" r="'+r.toFixed(1)+'" fill="none" stroke="'+col.fg+'" stroke-width="'+(calm?1.6:1.2)+'"/>';
+    var svg='<svg width="60" height="62" viewBox="0 0 60 62" style="overflow:visible"><g transform="translate(30,34)"><g transform="rotate('+s.dir+')">'+(calm?"":gustInd)+(calm?"":ind)+'</g>'+ring+'</g></svg>';
+    var sg=state.showGusts?" sg":"", off=mtier==="offline"?" offline":"";
+    return '<div class="wm'+sg+off+'">'+svg+'<div class="wm-name">'+escapeHtml(s.name)+'</div></div>';
+  }
+  function windIcon(s){ return L.divIcon({className:"",iconSize:[60,62],iconAnchor:[30,34],popupAnchor:[0,-30],html:windMarkerHtml(s)}); }
+  function dodgeMarkers(){
+    if(!map) return;
+    var arr=Object.keys(markers).map(function(id){ var m=markers[id]; var p=map.latLngToContainerPoint(m._trueLatLng); return {m:m,x:p.x,y:p.y}; });
+    var R=30, used=[];
+    arr.forEach(function(a){
+      if(used.indexOf(a)>=0) return;
+      var cl=[a]; used.push(a);
+      arr.forEach(function(b){ if(used.indexOf(b)<0 && Math.hypot(b.x-a.x,b.y-a.y)<R){ cl.push(b); used.push(b); } });
+      if(cl.length<2){ a.m.setLatLng(a.m._trueLatLng); return; }
+      var cx=cl.reduce(function(t,p){return t+p.x;},0)/cl.length, cy=cl.reduce(function(t,p){return t+p.y;},0)/cl.length;
+      cl.sort(function(p,q){ return p.m._trueLatLng.lng-q.m._trueLatLng.lng; });
+      var span=(cl.length-1)*30;
+      cl.forEach(function(p,i){ p.m.setLatLng(map.containerPointToLatLng(L.point(cx-span/2+i*30, cy))); });
+    });
+  }
+  function renderMarkers(vis){
+    if(!map)return; vis=vis.filter(function(s){ return !state.mapHidden[s.id]; });
+    if(!map._dodgeBound){ map.on("zoomend",dodgeMarkers); map._dodgeBound=true; }
+    var visIds=vis.map(function(s){return s.id;});
+    Object.keys(markers).forEach(function(id){ if(visIds.indexOf(id)<0){ map.removeLayer(markers[id]); delete markers[id]; } });
+    vis.forEach(function(s){
+      var ll=L.latLng(s.lat,s.lon);
+      if(markers[s.id]){ markers[s.id]._trueLatLng=ll; markers[s.id].setIcon(windIcon(s)); }
+      else{ var m=L.marker(ll,{icon:windIcon(s)}).addTo(map); m._trueLatLng=ll;
+        m.on("mouseover",function(){ highlightMarker(s.id,true); var el=document.querySelector('.card[data-id="'+s.id+'"]'); if(el){ el.classList.add("hl"); el.scrollIntoView({behavior:"smooth",block:"nearest"}); } });
+        m.on("mouseout",function(){ highlightMarker(s.id,false); var el=document.querySelector('.card[data-id="'+s.id+'"]'); if(el)el.classList.remove("hl"); });
+        // Touch: tap a marker to toggle its name + gust barbs (no hover on phones).
+        m.on("click",function(){ var isHl=markers[s.id]&&markers[s.id]._icon&&markers[s.id]._icon.querySelector(".wm.hl"); Object.keys(markers).forEach(function(k){ if(k!==s.id)highlightMarker(k,false); }); highlightMarker(s.id,!isHl); });
+        markers[s.id]=m; }
+    });
+    dodgeMarkers();
+  }
+
+  function highlightMarker(id,on){ var m=markers[id]; if(!m||!m._icon)return; var wm=m._icon.querySelector(".wm"); if(wm)wm.classList.toggle("hl",on); if(m.setZIndexOffset)m.setZIndexOffset(on?1000:0); }
+
+  // ---- webcams ----
+  function camCard(s){ return '<div class="cam"><div class="feed">'+escapeHtml(s.name)+' webcam</div><div class="cap"><span>'+escapeHtml(s.name)+'</span>'+(s.camUrl?'<a href="'+s.camUrl+'" target="_blank" rel="noopener">open source \u2197</a>':'')+'</div></div>'; }
+  function openCams(single){ var cams=single?[byId(single)]:STATIONS.filter(function(s){return s.cam;});
+    document.getElementById("modal").innerHTML='<div class="mhead"><h3>'+(single?escapeHtml(cams[0].name)+" webcam":"So\u010da valley webcams")+'</h3><button class="close" data-close="1">\u2715</button></div><div class="camgrid">'+cams.map(camCard).join("")+'</div><div class="sparklab" style="margin-top:12px;font-size:11.5px">Preview placeholders. The real app shows live cam images/streams here.</div>';
+    document.getElementById("overlay").classList.add("open"); }
+  function closeCams(){ if(typeof stopScrub==="function")stopScrub(); if(typeof revokeScrubCache==="function")revokeScrubCache(); document.getElementById("overlay").classList.remove("open"); document.getElementById("modal").className="modal"; }
+
+  var BASEMAPS={
+    light:{url:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",opts:{maxZoom:19,subdomains:"abc",attribution:"\u00a9 OpenStreetMap contributors"}},
+    terrain:{url:"https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",opts:{maxZoom:17,subdomains:"abc",attribution:"\u00a9 OpenStreetMap, SRTM | \u00a9 OpenTopoMap"}},
+    satellite:{url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",opts:{maxZoom:19,attribution:"Imagery \u00a9 Esri"}},
+    dark:{url:"https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",opts:{maxZoom:16,attribution:"\u00a9 Esri, \u00a9 OpenStreetMap contributors"}}
+  };
+  var tileLayer=null;
+  function setBasemap(key,save){ if(!map)return; var b=BASEMAPS[key]||BASEMAPS.light; if(tileLayer)map.removeLayer(tileLayer); tileLayer=L.tileLayer(b.url,b.opts).addTo(map); state.basemap=key; var sel=document.getElementById("basemapSel"); if(sel)sel.value=key; if(save)persist(); if(state.view==="map")renderMarkers(visibleStations()); }
+
+  function setSeg(id,attr,val){ document.querySelectorAll("#"+id+" button").forEach(function(b){ b.classList.toggle("on",b.getAttribute(attr)===String(val)); }); }
+  function setView(v){ state.view=v; setSeg("viewSeg","data-v",v); setSeg("botnav","data-v",v); applyView(); render(); }
+  function applyView(){
+    document.getElementById("mapview").style.display=state.view==="map"?"":"none";
+    document.getElementById("listview").style.display=state.view==="list"?"":"none";
+    document.getElementById("chartview").style.display=state.view==="chart"?"":"none";
+    document.getElementById("camsview").style.display=state.view==="cams"?"":"none";
+    if(state.view==="map"&&map){ setTimeout(function(){ map.invalidateSize(); },60); }
+  }
+  function toggleMember(listId,sid){ if(!sid)return; var l=listById(listId); if(!l)return; var i=l.members.indexOf(sid); if(i>=0)l.members.splice(i,1); else l.members.push(sid); persist(); renderLists(); render(); }
+  function addListWith(name,sid){ name=(name||"").trim(); if(!name)return; var id="l"+Math.random().toString(36).slice(2,7); state.lists.push({id:id,name:name,builtin:false,members:sid?[sid]:[]}); persist(); renderLists(); render(); }
+  function reorder(id,newPos){ var arr=state.order.slice(); var cur=arr.indexOf(id); if(cur>=0)arr.splice(cur,1); newPos=Math.max(1,Math.min(arr.length+1,newPos)); arr.splice(newPos-1,0,id); state.order=arr; state.sortKey="custom"; persist(); render(); }
+
+  function reorderCam(dragId, targetId){
+    var ids=orderedCams().map(function(c){ return c.id; });
+    var from=ids.indexOf(dragId); if(from<0)return; ids.splice(from,1);
+    var to=ids.indexOf(targetId); if(to<0)to=ids.length; ids.splice(to,0,dragId);
+    state.camOrder=ids; persist(); paintCamGrid();
+  }
+  function reorderStation(dragId, targetId){
+    var arr=state.order.slice();
+    STATIONS.forEach(function(s){ if(arr.indexOf(s.id)<0) arr.push(s.id); });
+    var from=arr.indexOf(dragId); if(from<0)return; arr.splice(from,1);
+    var to=arr.indexOf(targetId); if(to<0)to=arr.length; arr.splice(to,0,dragId);
+    state.order=arr; state.sortKey="custom"; persist(); render();
+  }
+  function applySkin(k){ state.skin=(k||"dark"); document.documentElement.setAttribute("data-skin",state.skin); }
+  function openSettings(){
+    var m=document.getElementById("modal"); m.className="modal setmodal";
+    var u=UNIT_LABEL[state.unit];
+    m.innerHTML='<div class="mhead"><h3>Settings</h3><button class="close" data-close="1">✕</button></div>'+
+      '<div class="setgrid">'+
+        '<div class="setrow"><label>Wind indicator</label><div class="seg" id="indSeg"><button data-ind="barb" class="'+(state.indicator!=="arrow"?"on":"")+'">Barbs</button><button data-ind="arrow" class="'+(state.indicator==="arrow"?"on":"")+'">Arrows</button></div></div>'+
+        '<div class="setrow"><label>Indicator size</label><input type="range" id="setBarb" min="0.6" max="1.8" step="0.1" value="'+(state.barbScale||1)+'"><span class="setval" id="setBarbV">'+(state.barbScale||1).toFixed(1)+'×</span></div>'+
+        '<div class="setrow"><label>Calm-circle size</label><input type="range" id="setCalm" min="0.6" max="2" step="0.1" value="'+(state.calmScale||1)+'"><span class="setval" id="setCalmV">'+(state.calmScale||1).toFixed(1)+'×</span></div>'+
+        '<div class="setrow"><label>Wind unit</label><div class="seg" id="setUnit"><button data-u="kn">kt</button><button data-u="ms">m/s</button><button data-u="kmh">km/h</button><button data-u="mph">mph</button></div></div>'+
+        '<div class="setrow"><label>Height</label><div class="seg" id="setElev"><button data-e="m">m</button><button data-e="ft">ft</button></div></div>'+
+        '<div class="setrow"><label id="setCautionLbl">Caution ≥ ('+u+')</label><input class="num" id="setCaution" type="number" min="0" step="0.5" value="'+threshFmt(state.caution)+'"></div>'+
+        '<div class="setrow"><label id="setDangerLbl">Danger ≥ ('+u+')</label><input class="num" id="setDanger" type="number" min="0" step="0.5" value="'+threshFmt(state.danger)+'"></div>'+
+        '<div class="setrow"><label>Graph span</label><div class="seg" id="setSpark"><button data-sr="2">2h</button><button data-sr="6">6h</button><button data-sr="12">12h</button><button data-sr="24">24h</button></div></div>'+
+        '<div class="setrow"><label>Skin</label><select id="setSkin"><option value="dark">Dark</option><option value="light">Light</option><option value="daylight">Daylight (bright sun)</option><option value="midnight">Midnight (OLED)</option></select></div>'+
+        '<div class="setrow"><label>Default map</label><select id="setBasemap"><option value="dark">Dark</option><option value="light">Streets</option><option value="terrain">Terrain</option><option value="satellite">Satellite</option></select></div>'+
+        '<div class="setrow"><label>Sync to another device</label><button class="act" id="setSyncBtn">Copy sync link</button></div>'+
+        '<div class="setrow" id="setSyncRow" hidden><input class="num" id="setSyncLink" readonly style="flex:1;min-width:0;font-family:\'IBM Plex Mono\',monospace;font-size:11px"><span class="setval" id="setSyncMsg"></span></div>'+
+        '<div class="setnote">Barbs show speed (½=5, |=10, ▲=50 kt); arrows show direction with length scaled to speed. Settings save on this device. The sync link carries your lists + settings to another device — copy it, open it there once, and they import (it\'s a manual copy; re-copy after changing lists).</div>'+
+      '</div>';
+    document.getElementById("setBasemap").value=state.basemap;
+    document.getElementById("setSkin").value=state.skin||"dark";
+    document.getElementById("setSkin").addEventListener("change",function(e){ applySkin(e.target.value); persist(); });
+    document.getElementById("overlay").classList.add("open");
+    var remap=function(){ if(state.view==="map")renderMarkers(visibleStations()); };
+    document.getElementById("indSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.indicator=b.getAttribute("data-ind"); setSeg("indSeg","data-ind",state.indicator); persist(); remap(); });
+    var sb=document.getElementById("setBarb"); sb.addEventListener("input",function(){ state.barbScale=+sb.value; document.getElementById("setBarbV").textContent=(+sb.value).toFixed(1)+"×"; persist(); remap(); });
+    var scv=document.getElementById("setCalm"); scv.addEventListener("input",function(){ state.calmScale=+scv.value; document.getElementById("setCalmV").textContent=(+scv.value).toFixed(1)+"×"; persist(); remap(); });
+    var sc2=document.getElementById("setCaution"); sc2.addEventListener("change",function(){ state.caution=dispToKnots(+sc2.value||0); persist(); refreshThreshUI(); render(); });
+    var sd=document.getElementById("setDanger"); sd.addEventListener("change",function(){ state.danger=dispToKnots(+sd.value||0); persist(); refreshThreshUI(); render(); });
+    document.getElementById("setBasemap").addEventListener("change",function(e){ setBasemap(e.target.value,true); });
+    setSeg("setUnit","data-u",state.unit); setSeg("setSpark","data-sr",state.sparkRange); setSeg("setElev","data-e",state.elevUnit);
+    document.getElementById("setElev").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.elevUnit=b.getAttribute("data-e"); setSeg("setElev","data-e",state.elevUnit); persist(); render(); });
+    function setThreshLabels(){ var uu=UNIT_LABEL[state.unit], cl=document.getElementById("setCautionLbl"), dl=document.getElementById("setDangerLbl"), sc=document.getElementById("setCaution"), sd=document.getElementById("setDanger"); if(cl)cl.textContent="Caution ≥ ("+uu+")"; if(dl)dl.textContent="Danger ≥ ("+uu+")"; if(sc)sc.value=threshFmt(state.caution); if(sd)sd.value=threshFmt(state.danger); }
+    document.getElementById("setUnit").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.unit=b.getAttribute("data-u"); setSeg("setUnit","data-u",state.unit); persist(); refreshThreshUI(); setThreshLabels(); render(); });
+    document.getElementById("setSpark").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.sparkRange=+b.getAttribute("data-sr"); setSeg("setSpark","data-sr",state.sparkRange); persist(); if(state.view==="map"||state.view==="list")render(); });
+    document.getElementById("setSyncBtn").addEventListener("click",function(){ var link=makeSyncLink(), row=document.getElementById("setSyncRow"), inp=document.getElementById("setSyncLink"), msg=document.getElementById("setSyncMsg"); if(!link){ if(msg)msg.textContent="couldn't build link"; return; } row.hidden=false; inp.value=link; try{inp.focus();inp.select();}catch(_){} if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(function(){ msg.textContent="copied ✓"; },function(){ msg.textContent="select & copy"; }); } else { msg.textContent="select & copy"; } });
+  }
+  function wire(){
+    document.getElementById("viewSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; setView(b.getAttribute("data-v")); });
+    document.getElementById("botnav").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; setView(b.getAttribute("data-v")); window.scrollTo(0,0); });
+    document.getElementById("rangeSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.chartRange=+b.getAttribute("data-r"); setSeg("rangeSeg","data-r",state.chartRange); persist(); renderChart(); });
+    document.getElementById("metricSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.chartMetric=b.getAttribute("data-m"); setSeg("metricSeg","data-m",state.chartMetric); persist(); renderChart(); });
+    document.getElementById("chartlegend").addEventListener("click",function(e){ var c=e.target.closest("[data-legend]"); if(!c)return; var id=c.getAttribute("data-legend"); state.chartHidden[id]=!state.chartHidden[id]; renderChart(); });
+    var cw=document.getElementById("chartwrap"); cw.addEventListener("mousemove",chartMove); cw.addEventListener("mouseleave",chartLeave);
+    document.getElementById("refresh").addEventListener("click",function(){ var ic=document.getElementById("refIcon"); if(ic)ic.textContent="…"; loadData().then(function(){ if(ic)ic.textContent="↻"; }); });
+    document.getElementById("settingsBtn").addEventListener("click",openSettings);
+    // Phone only: slide the title + tabs (#topchrome) up when scrolling down, back in when scrolling up.
+    var lastY=0, chromeHidden=false;
+    window.addEventListener("scroll",function(){
+      if(window.innerWidth>900){ if(chromeHidden){document.body.classList.remove("chrome-hidden");chromeHidden=false;} return; }
+      var y=window.pageYOffset||document.documentElement.scrollTop||0;
+      if(y>70 && y>lastY+5){ if(!chromeHidden){document.body.classList.add("chrome-hidden");chromeHidden=true;} }
+      else if(y<lastY-5 || y<70){ if(chromeHidden){document.body.classList.remove("chrome-hidden");chromeHidden=false;} }
+      lastY=y;
+    },{passive:true});
+    document.getElementById("overlay").addEventListener("click",function(e){ if(e.target.id==="overlay"||e.target.getAttribute("data-close"))closeCams(); });
+    // Cams: hide / unhide / rename / open / drag-reorder
+    var cg=document.getElementById("camgrid");
+    cg.addEventListener("click",function(e){
+      var h=e.target.closest("[data-hide]"); if(h){ e.stopPropagation(); state.camHidden[h.getAttribute("data-hide")]=true; persist(); paintCamGrid(); return; }
+      var u=e.target.closest("[data-unhide]"); if(u){ delete state.camHidden[u.getAttribute("data-unhide")]; persist(); paintCamGrid(); return; }
+      if(e.target.closest("[data-camdrag]")) return;  // drag handle: reorder only, don't open
+      if(e.target.closest("[data-camname]")) return; // name: dblclick renames, single click does nothing
+      if(e.target.closest(".tlrow")) return;          // timeline: scrub, don't open
+      var t=e.target.closest("[data-cam]"); if(t)openCam(t.getAttribute("data-cam"));
+    });
+    cg.addEventListener("input",function(e){
+      var s=e.target.closest(".tlslider"); if(!s)return;
+      var id=s.getAttribute("data-tl"), frames=camFramesFor(id), vi=+s.value, f=frames[vi]; if(!f)return;
+      var img=cg.querySelector('.pic[data-pic="'+id+'"]'); if(img){ var cds=[]; for(var k=vi;k>=Math.max(0,vi-7);k--){ if(frames[k])cds.push(frames[k].f); } loadCamPic(img,cds,480); }
+      var t=cg.querySelector('.tlt[data-tlt="'+id+'"]'); if(t)t.textContent=fmtClock(f.t)+((+s.value===frames.length-1)?' · now':'');
+    });
+    cg.addEventListener("dblclick",function(e){ var n=e.target.closest("[data-camname]"); if(n){ e.preventDefault(); startCamRename(n.getAttribute("data-camname")); } });
+    var camDragId=null;
+    // A tile is only draggable while its ⠿ grip is held (set on mousedown, cleared on release).
+    // That way pointer-dragging the timeline slider, image, or name can never start a tile move.
+    function clearCamDraggable(){ var d=cg.querySelector('.camtile[draggable="true"]'); if(d)d.removeAttribute("draggable"); }
+    cg.addEventListener("mousedown",function(e){ clearCamDraggable(); var h=e.target.closest("[data-camdrag]"); if(!h)return; var t=e.target.closest(".camtile"); if(t)t.setAttribute("draggable","true"); });
+    document.addEventListener("mouseup",function(){ clearCamDraggable(); });
+    cg.addEventListener("dragstart",function(e){ var t=e.target.closest('.camtile[draggable="true"]'); if(!t){ e.preventDefault(); return; } camDragId=t.getAttribute("data-cam"); t.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",camDragId);}catch(_){} });
+    cg.addEventListener("dragover",function(e){ e.preventDefault(); });
+    cg.addEventListener("drop",function(e){ e.preventDefault(); var t=e.target.closest(".camtile"); if(!camDragId||!t)return; var tgt=t.getAttribute("data-cam"); if(tgt===camDragId)return; reorderCam(camDragId,tgt); });
+    cg.addEventListener("dragend",function(){ camDragId=null; clearCamDraggable(); var d=cg.querySelector(".dragging"); if(d)d.classList.remove("dragging"); });
+    // Map cards: drag to reorder stations
+    var cards=document.getElementById("cards"); var cardDragId=null;
+    cards.addEventListener("dragstart",function(e){ var t=e.target.closest(".card"); if(!t){e.preventDefault();return;} cardDragId=t.getAttribute("data-id"); t.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",cardDragId);}catch(_){} });
+    cards.addEventListener("dragover",function(e){ e.preventDefault(); var t=e.target.closest(".card"); [].forEach.call(cards.querySelectorAll(".dragover"),function(x){x.classList.remove("dragover");}); if(t&&t.getAttribute("data-id")!==cardDragId)t.classList.add("dragover"); });
+    cards.addEventListener("drop",function(e){ e.preventDefault(); var t=e.target.closest(".card"); if(cardDragId&&t){ var tgt=t.getAttribute("data-id"); if(tgt!==cardDragId)reorderStation(cardDragId,tgt); } });
+    cards.addEventListener("dragend",function(){ cardDragId=null; [].forEach.call(cards.querySelectorAll(".dragging,.dragover"),function(x){x.classList.remove("dragging","dragover");}); });
+
+    document.getElementById("lists").addEventListener("click",function(e){
+      var t=e.target.closest("[data-list]"); if(t){ state.active=t.getAttribute("data-list"); persist(); renderLists(); render(); return; }
+      if(e.target.closest("[data-newlist]")){ editingList="__new__"; renderLists(); return; }
+      var ed=e.target.closest("[data-editlist]"); if(ed){ editingList=ed.getAttribute("data-editlist"); renderLists(); return; }
+      var dl=e.target.closest("[data-dellist]"); if(dl){ var id=dl.getAttribute("data-dellist"); state.lists=state.lists.filter(function(l){return l.id!==id;}); if(state.active===id)state.active="all"; persist(); renderLists(); render(); return; }
+    });
+    document.getElementById("cards").addEventListener("click",function(e){
+      var fv=e.target.closest("[data-fav]"); if(fv){ toggleMember("fav",fv.getAttribute("data-fav")); return; }
+      var cm=e.target.closest("[data-cam]"); if(cm){ openCams(cm.getAttribute("data-cam")); return; }
+      var lb=e.target.closest("[data-lists]"); if(lb){ var id=lb.getAttribute("data-lists"); openPop=(openPop===id?null:id); render(); return; }
+      var tg=e.target.closest("[data-toggle]"); if(tg){ toggleMember(tg.getAttribute("data-toggle"),openPop); return; }
+      var pa=e.target.closest("[data-popadd]"); if(pa){ var sid=pa.getAttribute("data-popadd"); var inp=document.querySelector('[data-popnew="'+sid+'"]'); addListWith(inp?inp.value:"",sid); return; }
+    });
+    document.getElementById("cards").addEventListener("keydown",function(e){ var inp=e.target.closest("[data-popnew]"); if(inp&&e.key==="Enter")addListWith(inp.value,inp.getAttribute("data-popnew")); });
+    var cardsEl=document.getElementById("cards"), hlId=null;
+    cardsEl.addEventListener("mouseover",function(e){ var c=e.target.closest(".card[data-id]"); var id=c&&c.getAttribute("data-id"); if(id!==hlId){ if(hlId)highlightMarker(hlId,false); hlId=id; if(hlId)highlightMarker(hlId,true); } });
+    cardsEl.addEventListener("mouseleave",function(){ if(hlId){ highlightMarker(hlId,false); hlId=null; } });
+
+    var lv=document.getElementById("listview");
+    lv.addEventListener("click",function(e){
+      var th=e.target.closest("[data-sort]"); if(th){ var k=th.getAttribute("data-sort"); if(k==="custom"){ state.sortKey="custom"; } else if(state.sortKey===k){ state.sortDir*=-1; } else { state.sortKey=k; state.sortDir=(k==="name")?1:-1; } persist(); render(); return; }
+      var fv=e.target.closest("[data-fav]"); if(fv){ toggleMember("fav",fv.getAttribute("data-fav")); return; }
+      var cm=e.target.closest("[data-cam]"); if(cm){ openCams(cm.getAttribute("data-cam")); return; }
+      var ey=e.target.closest("[data-eye]"); if(ey){ var id=ey.getAttribute("data-eye"); state.mapHidden[id]=!state.mapHidden[id]; persist(); renderTable(visibleStations()); return; }
+    });
+    // List rows reorder by dragging the ☰ handle (row is only draggable while the handle is held).
+    var tb=document.getElementById("tbody"), rowDragId=null;
+    function clearRowDrag(){ var d=tb.querySelector('tr[draggable="true"]'); if(d)d.removeAttribute("draggable"); }
+    tb.addEventListener("mousedown",function(e){ clearRowDrag(); var h=e.target.closest("[data-rowdrag]"); if(!h)return; var tr=e.target.closest("tr"); if(tr)tr.setAttribute("draggable","true"); });
+    document.addEventListener("mouseup",function(){ clearRowDrag(); });
+    tb.addEventListener("dragstart",function(e){ var tr=e.target.closest('tr[draggable="true"]'); if(!tr){ e.preventDefault(); return; } rowDragId=tr.getAttribute("data-id"); tr.classList.add("dragging"); e.dataTransfer.effectAllowed="move"; try{e.dataTransfer.setData("text/plain",rowDragId);}catch(_){} });
+    tb.addEventListener("dragover",function(e){ e.preventDefault(); });
+    tb.addEventListener("drop",function(e){ e.preventDefault(); var tr=e.target.closest("tr"); if(!rowDragId||!tr)return; var tgt=tr.getAttribute("data-id"); if(tgt&&tgt!==rowDragId)reorderStation(rowDragId,tgt); });
+    tb.addEventListener("dragend",function(){ rowDragId=null; clearRowDrag(); var d=tb.querySelector(".dragging"); if(d)d.classList.remove("dragging"); });
+
+    document.addEventListener("click",function(e){ if(openPop && !e.target.closest(".pop") && !e.target.closest("[data-lists]")){ openPop=null; render(); } });
+    wireHoverGraph();
+  }
+
+  function initMap(){ map=L.map("map",{zoomControl:true}).setView([46.31,13.62],10);
+    setBasemap(state.basemap,false);
+    var ctrl=L.control({position:"topright"});
+    ctrl.onAdd=function(){ var d=L.DomUtil.create("div","map-ctrl"); d.innerHTML='<select id="basemapSel"><option value="light">Light</option><option value="terrain">Terrain</option><option value="satellite">Satellite</option><option value="dark">Dark</option></select><button id="gustToggle" class="gswitch'+(state.showGusts?" on":"")+'" role="switch" aria-label="Show gusts"><span class="knob"></span>Gusts</button>'; L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d); return d; };
+    ctrl.addTo(map);
+    var sel=document.getElementById("basemapSel"); if(sel){ sel.value=state.basemap; sel.addEventListener("change",function(e){ setBasemap(e.target.value,true); }); }
+    var gt=document.getElementById("gustToggle"); if(gt){ gt.addEventListener("click",function(){ state.showGusts=!state.showGusts; gt.classList.toggle("on",state.showGusts); persist(); if(state.view==="map")renderMarkers(visibleStations()); }); }
+    setTimeout(function(){ map.invalidateSize(); },200); window.addEventListener("resize",function(){ if(map)map.invalidateSize(); }); }
+
+  // ---- live data.json loading + fallback ----
+  function fmtClock(ts){ if(!ts)return"–"; var d=new Date(ts); return pad2(d.getHours())+":"+pad2(d.getMinutes()); }
+  function fetchModel(){
+    return fetch('https://api.open-meteo.com/v1/forecast?latitude=46.33&longitude=13.55&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=ms')
+      .then(function(r){ if(!r.ok)throw 0; return r.json(); })
+      .then(function(j){ var c=j.current||{}; DATA_META.model={ windKmh:(c.wind_speed_10m||0)*3.6, gustKmh:(c.wind_gusts_10m||0)*3.6, dir:c.wind_direction_10m||0, t:Date.now() }; return DATA_META.model; })
+      .catch(function(){ DATA_META.model=null; return null; });
+  }
+  function updateStaleUI(){
+    var banner=document.getElementById("banner");
+    var dot=document.getElementById("statusDot"), txt=document.getElementById("statusTxt");
+    var gen=DATA_META.generated?Date.parse(DATA_META.generated):null;
+    var ageMin=gen?Math.round((Date.now()-gen)/60000):null;
+    var stale=(!STATIONS.length)||(ageMin==null)||(ageMin>STALE_MIN);
+    var level=stale?"red":(ageMin<=15?"green":"amber");
+    if(dot) dot.className="sdot "+level;
+    if(txt) txt.textContent=gen?("Updated "+fmtClock(gen)+((ageMin!=null&&ageMin>=3)?" ("+ageMin+"m)":"")):"loading…";
+    if(!banner)return;
+    if(!stale){ banner.hidden=true; banner.className="banner"; return; }
+    banner.hidden=false; banner.className="banner stale";
+    var lastTxt=gen?('last observed update '+fmtClock(gen)+' ('+ageMin+'m ago)'):'no observed data loaded';
+    var m=DATA_META.model;
+    if(m){ banner.innerHTML='⚠ Observed data STALE — '+lastTxt+'. Showing <strong>MODEL</strong> wind for Bovec DZ: '+fmt(m.windKmh)+' '+UNIT_LABEL[state.unit]+', gust '+fmt(m.gustKmh)+', from '+Math.round(m.dir)+'° '+compass(m.dir)+' — <strong>MODEL, not observed.</strong>'; }
+    else { banner.innerHTML='⚠ Observed data STALE — '+lastTxt+'. (Model fallback unavailable — check back shortly.)'; }
+  }
+  function decideFallback(){
+    var gen=DATA_META.generated?Date.parse(DATA_META.generated):null;
+    var ageMin=gen?Math.round((Date.now()-gen)/60000):null;
+    var stale=(!STATIONS.length)||(ageMin==null)||(ageMin>STALE_MIN);
+    if(stale && (!DATA_META.model || (Date.now()-DATA_META.model.t)>5*60000)){ fetchModel().then(updateStaleUI); }
+    updateStaleUI();
+  }
+  var NAME_FIX={ "Srednji vrh (Matajur)":"Matajur" };
+  var DROP_IDS={ arso_vogel:1 };   // duplicate of the skytech Vogel launch — hidden per JB
+  function ingest(arr){
+    arr=arr.filter(function(s){ return !DROP_IDS[s.id]; });
+    arr.forEach(function(s){ if(NAME_FIX[s.name])s.name=NAME_FIX[s.name]; s.name=s.name.replace(/\s*\(ARSO\)\s*$/,""); if(!s.series||!s.series.length){ s.series=(s.rw&&s.rw.length)?s.rw.slice(-12):[s.wind||0,s.wind||0]; } genHi(s); });
+    STATIONS=arr;
+    var ids=STATIONS.map(function(s){return s.id;});
+    var kept=state.order.filter(function(id){return ids.indexOf(id)>=0;});
+    ids.forEach(function(id){ if(kept.indexOf(id)<0)kept.push(id); });
+    state.order=kept; dataLoadedOnce=true;
+  }
+  function handleData(j){ var arr=Array.isArray(j)?j:(j.stations||[]); DATA_META.generated=(j&&j.generated)?j.generated:new Date().toISOString(); ingest(arr); render(); decideFallback(); }
+  function loadData(){
+    // Live wind comes from the camstore branch (refreshed by the loop, served via raw). Falls
+    // back to a same-origin data.json if raw is unreachable.
+    return fetch(LIVE_BASE+'data.json?ts='+Date.now(),{cache:'no-store'})
+      .then(function(r){ if(!r.ok)throw new Error('http '+r.status); return r.json(); })
+      .then(handleData)
+      .catch(function(){ return fetch('data.json?ts='+Date.now(),{cache:'no-store'})
+        .then(function(r){ if(!r.ok)throw new Error('http '+r.status); return r.json(); })
+        .then(handleData); })
+      .catch(function(){ if(!dataLoadedOnce){ DATA_META.generated=null; STATIONS=[]; } render(); decideFallback(); });
+  }
+
+  function boot(){
+    Promise.all([loadStore("pmw_lists"),loadStore("pmw_settings")]).then(function(v){
+      if(v[0]&&v[0].length){ state.lists=v[0].filter(function(l){return l.id!=="fav";}); }
+      if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir;
+        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; if(typeof q.showGusts==="boolean")state.showGusts=q.showGusts; if(q.elevUnit)state.elevUnit=q.elevUnit; }
+      applySyncHash();   // a #sync=… link (opened on this device) overrides local settings + imports lists
+      applySkin(state.skin);
+      setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("botnav","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
+      refreshThreshUI();
+      initMap(); wire(); applyView(); renderLists(); render();
+      loadData(); setInterval(loadData, 5*60000);
+    });
+  }
+  if(document.readyState==="loading"){ document.addEventListener("DOMContentLoaded",boot); } else { boot(); }
+})();
+</script>

@@ -50,27 +50,55 @@ function frameEpoch(fname){ const m = fname.match(/^(\d+)\.jpg$/); return m ? +m
 // flat mid-grey band baked into the bottom. jpegComplete can't catch that, so we DECODE the frame
 // and reject one whose bottom band is flat (~zero variance) and mid-grey (~128). Genuine haze/cloud/
 // snow/night has real variance or a non-grey mean, so it passes. Keeps grey frames out of storage.
-let jpegDec=null; try{ jpegDec=require('jpeg-js'); }catch(e){ console.error('jpeg-js unavailable — grey-frame check disabled'); }
-let sharp=null; try{ sharp=require('sharp'); }catch(e){ console.error('sharp unavailable — s53 will fall back to wsrv downscale'); }
+let jpegDec=null; try{ jpegDec=require('jpeg-js'); }catch(e){ console.error('jpeg-js unavailable'); }
+let sharp=null; try{ sharp=require('sharp'); }catch(e){ console.error('sharp unavailable'); }
+const MODS = { sharp: !!sharp, jpegjs: !!jpegDec };
+console.log('grey-check modules — sharp:', MODS.sharp, ' jpeg-js:', MODS.jpegjs);
 // Downscale a full-res source buffer LOCALLY with sharp (never through wsrv, which is what baked the
-// grey band in). Returns a clean, downscaled JPEG, or null (grey / no sharp) so the caller can fall back.
+// grey band in). STRICT: returns the downscaled JPEG ONLY when it is proven NOT grey; otherwise null
+// (grey, undecidable, or no sharp) so the caller can fall back / skip.
 async function downscaleClean(raw, w, q){
   if(!sharp) return null;
   try{ const out = await sharp(raw).resize({ width:w, withoutEnlargement:true }).jpeg({ quality:q }).toBuffer();
-       return greyFrame(out) ? null : out; }
+       return (await greyFrame(out)) === false ? out : null; }
   catch(e){ return null; }
 }
-function greyFrame(buf){
-  if(!jpegDec) return false;
-  try{
-    const img=jpegDec.decode(buf,{formatAsRGBA:true,maxMemoryUsageInMB:1024});
-    const w=img.width,h=img.height,d=img.data; if(!w||!h) return false;
-    const y0=Math.floor(h*0.6), xs=Math.max(1,Math.floor(w/48)); let sum=0; const vals=[];
-    for(let y=y0;y<h;y+=2){ for(let x=0;x<w;x+=xs){ const i=(y*w+x)*4; const L=(d[i]+d[i+1]+d[i+2])/3; vals.push(L); sum+=L; } }
-    if(!vals.length) return false;
-    const m=sum/vals.length; let v=0; for(const L of vals) v+=(L-m)*(L-m); const sd=Math.sqrt(v/vals.length);
-    return sd<6 && m>95 && m<165;
-  }catch(e){ return false; }
+// Measure the bottom-40% luminance {mean, sd}. PREFERRED path is sharp (a native decode that loads far
+// more reliably on the runner than jpeg-js, and is already used for downscaling); jpeg-js is a pure-JS
+// fallback. Returns null when NEITHER can decode, so callers treat "unknown" as unsafe for s53.
+async function greyBand(buf){
+  if(sharp){
+    try{
+      const meta = await sharp(buf).metadata();
+      const w = meta.width, h = meta.height;
+      if(w && h){
+        const top = Math.floor(h*0.6);
+        const { data } = await sharp(buf).extract({ left:0, top, width:w, height:Math.max(1,h-top) })
+          .greyscale().raw().toBuffer({ resolveWithObject:true });
+        let sum=0; for(let i=0;i<data.length;i++) sum+=data[i];
+        const m=sum/data.length; let v=0; for(let i=0;i<data.length;i++){ const d=data[i]-m; v+=d*d; }
+        return { m, sd: Math.sqrt(v/data.length) };
+      }
+    }catch(e){}
+  }
+  if(jpegDec){
+    try{
+      const img=jpegDec.decode(buf,{formatAsRGBA:true,maxMemoryUsageInMB:1024});
+      const w=img.width,h=img.height,d=img.data;
+      if(w && h){
+        const y0=Math.floor(h*0.6), xs=Math.max(1,Math.floor(w/48)); let sum=0; const vals=[];
+        for(let y=y0;y<h;y+=2){ for(let x=0;x<w;x+=xs){ const i=(y*w+x)*4; const L=(d[i]+d[i+1]+d[i+2])/3; vals.push(L); sum+=L; } }
+        if(vals.length){ const m=sum/vals.length; let v=0; for(const L of vals) v+=(L-m)*(L-m); return { m, sd: Math.sqrt(v/vals.length) }; }
+      }
+    }catch(e){}
+  }
+  return null;
+}
+// true = grey (reject), false = clean (keep), null = couldn't decode (treated as unsafe for s53).
+async function greyFrame(buf){
+  const b = await greyBand(buf);
+  if(!b) return null;
+  return b.sd < 6 && b.m > 95 && b.m < 165;
 }
 
 const DIAG = [];
@@ -94,7 +122,8 @@ async function grab(cam){
   for(let attempt=1; attempt<=3; attempt++){
     try {
       const r = await grabOnce(cam);
-      const grey = r.jpeg && r.buf.length >= MIN_BYTES && greyFrame(r.buf);
+      const g = (r.jpeg && r.buf.length >= MIN_BYTES) ? await greyFrame(r.buf) : null;
+      const grey = g === true;   // simple cams fetch direct & rarely grey — reject only a definite grey frame
       const good = r.ok && r.jpeg && r.buf.length >= MIN_BYTES && !grey;
       if(attempt===3 || good) DIAG.push({ id: cam.id, status: r.status, bytes: r.buf.length, jpeg: r.jpeg, grey: grey||undefined, placeholder: (r.jpeg && r.buf.length < MIN_BYTES) || undefined, attempt });
       if(good) return r.buf;
@@ -172,7 +201,7 @@ async function s53Frame(loc, fname){
     try {
       const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent':'Mozilla/5.0 PMW' } });
       const buf = Buffer.from(await r.arrayBuffer());
-      if(r.ok && jpegComplete(buf) && !greyFrame(buf)) return buf;
+      if(r.ok && jpegComplete(buf) && (await greyFrame(buf)) === false) return buf;
     } catch(e){} finally { clearTimeout(t); }
     if(att<2) await sleep(400);
   }
@@ -219,10 +248,31 @@ async function s53Frame(loc, fname){
     wanted.forEach(w => tasks.push({ c, fn:w.fn, ep:w.ep }));
     DIAG.push({ id:c.id, listed:list.length, downloading:wanted.length });
   }
+  const s53Out = {};
   await pool(tasks, 4, async (task) => {
     const buf = await s53Frame(task.c.loc, task.fn);
-    if(buf){ fs.writeFileSync(path.join(CAM_DIR,'cams',task.c.id, task.ep+'.jpg'), buf); }
+    const o = s53Out[task.c.id] || (s53Out[task.c.id] = { stored:0, skipped:0 });
+    if(buf){ fs.writeFileSync(path.join(CAM_DIR,'cams',task.c.id, task.ep+'.jpg'), buf); o.stored++; }
+    else { o.skipped++; }
   });
+  for(const id in s53Out) DIAG.push({ id, s53stored: s53Out[id].stored, s53skipped: s53Out[id].skipped });
+
+  // Peel any grey frames off the TOP of each cam so the "latest" pointer is always a clean frame. This
+  // also cleans historical grey frames stored before the strict check existed. Only the newest few
+  // frames per cam are re-decoded each pass (cheap), and it converges within a pass or two.
+  for(const c of cams){
+    const dir = path.join(CAM_DIR, 'cams', c.id);
+    let files = [];
+    try { files = fs.readdirSync(dir).filter(f => frameEpoch(f) != null).sort((a,b)=>frameEpoch(a)-frameEpoch(b)); } catch(e){}
+    let peeled = 0;
+    for(let k=0; k<6 && files.length; k++){
+      const top = files[files.length-1];
+      let buf; try{ buf = fs.readFileSync(path.join(dir, top)); }catch(e){ break; }
+      if((await greyFrame(buf)) === true){ try{ fs.unlinkSync(path.join(dir, top)); }catch(e){} files.pop(); peeled++; }
+      else break;
+    }
+    if(peeled) console.log('cam', c.id, 'peeled', peeled, 'grey frame(s) off top');
+  }
 
   // Build latest-frame pointers for every cam from what's now on disk.
   const latest = cams.map((c) => {
@@ -255,7 +305,7 @@ async function s53Frame(loc, fname){
 
   // Latest pointers → main (served fresh from Pages).
   fs.writeFileSync(LATEST_OUT, JSON.stringify({ generated: new Date(now).toISOString(), base: RAW_BASE, cams: latest }));
-  if(process.env.DIAG_OUT){ fs.writeFileSync(process.env.DIAG_OUT, JSON.stringify({ generated: new Date(now).toISOString(), probes: DIAG })); }
+  if(process.env.DIAG_OUT){ fs.writeFileSync(process.env.DIAG_OUT, JSON.stringify({ generated: new Date(now).toISOString(), mods: MODS, probes: DIAG })); }
 
   const got = latest.filter(x=>x.t && (now - x.t) < 120000).length;
   console.log('cam capture: '+got+'/'+cams.length+' fresh this pass; frames/cam:', latest.map(x=>x.id+'='+x.count).join(' '));
