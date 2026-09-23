@@ -266,6 +266,38 @@
   /* ---- 2.0 additions ---- */
   .sdotb{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin-left:7px;box-shadow:0 0 0 2px var(--panel)}
   .sdotb.on{background:#34c96b} .sdotb.off{background:#f2564a}
+  /* ---- 2.0 compass-dial card (style C) ---- */
+  .card.c-dial .head{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+  .card.c-dial .head .nrow{flex:1;min-width:0;display:flex;align-items:center;gap:6px}
+  .card.c-dial .head .nrow .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .card.c-dial .head .nrow .elev{flex:none}
+  .card.c-dial .head .nrow .sdotb{flex:none;margin-left:2px}
+  .card.c-dial .head .nrow .upd{margin-left:auto;flex:none;white-space:nowrap}
+  .card.c-dial .headbtns{flex:none;display:flex;gap:6px}
+  .card.c-dial .cbody{display:block}
+  .card.c-dial .cmain{display:flex;align-items:center;gap:14px}
+  .card.c-dial .cdial{flex:none}
+  .card.c-dial .cdial svg{width:100%;height:100%;display:block}
+  .card.c-dial .cright{flex:1;min-width:0}
+  .card.c-dial .big{display:flex;align-items:baseline;gap:5px}
+  .card.c-dial .big .val{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:.95}
+  .card.c-dial .big .unit{font-size:13px;color:var(--ink-dim);font-weight:600}
+  .card.c-dial .gustline{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink-dim);margin-top:4px}
+  .card.c-dial .gustline b{font-size:15px}
+  .card.c-dial .gustline .w-go{color:var(--go)} .card.c-dial .gustline .w-caution{color:var(--caution)} .card.c-dial .gustline .w-danger{color:var(--danger)}
+  .card.c-dial .dirline{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-faint);margin-top:2px}
+  .card.c-dial .dirline b{color:var(--ink-dim)}
+  .card.c-dial .cchart{margin-top:12px;cursor:pointer}
+  .card.c-dial .sparklab{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);margin-top:3px}
+  .card.c-dial .sparklab{text-align:left}
+  .gustflag{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;color:var(--caution);border:1px solid rgba(242,166,61,.4);border-radius:5px;padding:0 5px;margin-left:5px;text-transform:uppercase;letter-spacing:.03em}
+  @media (max-width:560px){
+    .card.c-dial .big .val{font-size:30px}
+    .card.c-dial .cmain{gap:12px}
+    .card.c-dial .head .nrow .upd{font-size:10px}
+    .card.c-dial .sparklab{padding-right:26px}
+    .card.c-dial{padding-bottom:15px}
+  }
   .card{position:relative}
   details.inactive{margin-top:12px;border-top:1px dashed var(--line);padding-top:9px}
   details.inactive>summary{cursor:pointer;font-size:13px;color:var(--ink-dim);font-weight:600;list-style:none;padding:3px 2px}
@@ -565,6 +597,12 @@
   }
   function compassSvg(dir){ var rot=(dir==null||isNaN(dir))?0:(dir+180);
     return '<div class="compass"><svg viewBox="0 0 38 38"><circle class="ring" cx="19" cy="19" r="16"/><g class="arrow" style="transform:rotate('+rot+'deg)"><path d="M19 5 L24 22 L19 18 L14 22 Z"/></g></svg></div>'; }
+  function compassDial(dir,size){ size=size||64; var has=!(dir==null||isNaN(dir)); var rot=has?(dir+180):0;
+    return '<div class="cdial" style="width:'+size+'px;height:'+size+'px"><svg viewBox="0 0 76 76">'+
+      '<circle cx="38" cy="38" r="34" fill="none" stroke="var(--line)" stroke-width="2"/>'+
+      '<text x="38" y="16" fill="var(--ink-faint)" font-size="8" text-anchor="middle" font-family="IBM Plex Mono">N</text>'+
+      (has?('<g style="transform:rotate('+rot+'deg);transform-origin:38px 38px"><path d="M38 16 L38 60 M38 16 L31 25 M38 16 L45 25" stroke="var(--accent)" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'):'<circle cx="38" cy="38" r="3.5" fill="var(--ink-faint)"/>')+
+      '</svg></div>'; }
   function sparkSvg(series,status,w,h){
     w=w||110; h=h||30; var pad=3,min=Math.min.apply(null,series),max=Math.max.apply(null,series),rng=(max-min)||1;
     var col=status==="danger"?"var(--danger)":status==="caution"?"var(--caution)":"var(--go)";
@@ -677,14 +715,16 @@
   function cardHtml(s){
     var st=statusOf(s.wind), gs=statusOf(s.gust), u=UNIT_LABEL[state.unit];
     var ser=sparkSeries(s), mn=Math.min.apply(null,ser), mx=Math.max.apply(null,ser);
-    return '<div class="card" data-id="'+s.id+'" draggable="true"><div class="head"><div>'+
-      '<div class="nrow"><span class="drag" title="Drag to reorder">\u2630</span>'+
-      nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+statusDot(s)+'<span class="upd">'+updatedStr(s)+'</span></div></div>'+
+    var dirTxt=(s.dir==null||isNaN(s.dir))?'\u2014':('from <b>'+compass(s.dir)+'</b> \u00b7 '+Math.round(s.dir)+'\u00b0');
+    return '<div class="card c-dial" data-id="'+s.id+'" draggable="true">'+
+      '<div class="head"><div class="nrow"><span class="drag" title="Drag to reorder">\u2630</span>'+
+      nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+statusDot(s)+'<span class="upd">'+updatedStr(s)+'</span></div>'+
       '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'<button class="mini" data-lists="'+s.id+'">\u2630 Lists</button></div></div>'+
-      '<div class="cbody"><div class="cinfo">'+compassSvg(s.dir)+
-      '<div><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span>'+trendChip(s)+'<span class="dir-inline">from '+Math.round(s.dir)+'\u00b0 '+compass(s.dir)+'</span></div>'+
-      '<div class="ministats">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+' &middot; '+s.temp+'\u00b0</div></div></div>'+
-      '<div class="cchart" data-graph="'+s.id+'" title="hover for full graph">'+sparkSvg(ser,st,132,40)+'<div class="sparklab">'+(state.sparkRange||12)+'&#8202;h &middot; min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
+      '<div class="cbody"><div class="cmain">'+compassDial(s.dir,64)+
+        '<div class="cright"><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span>'+trendChip(s)+'</div>'+
+        '<div class="gustline">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+(isGusty(s)?' <span class="gustflag">gusty</span>':'')+'</div>'+
+        '<div class="dirline">'+dirTxt+'</div></div></div>'+
+        '<div class="cchart" data-graph="'+s.id+'" title="click for full graph">'+sparkSvg(ser,st,132,38)+'<div class="sparklab">'+(state.sparkRange||12)+'&#8202;h \u00b7 min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
       (openPop===s.id?popHtml(s):"")+'</div>'; }
   function inactiveBlock(dead){
     if(!dead.length) return "";
@@ -698,7 +738,7 @@
   }
 
   // ---- table view ----
-  var COLS=[{key:"name",label:"Station"},{key:"dir",label:"Dir"},{key:"wind",label:"Wind"},{key:"gust",label:"Gust"},{key:"temp",label:"Temp"},{key:"updated",label:"Updated"}];
+  var COLS=[{key:"name",label:"Station"},{key:"dir",label:"Dir"},{key:"wind",label:"Wind"},{key:"gust",label:"Gust"},{key:"updated",label:"Updated"}];
   function dirMini(dir){ var rot=(dir+180); return '<span class="dirmini"><svg width="21" height="21" viewBox="0 0 21 21"><g style="transform:rotate('+rot+'deg);transform-origin:10.5px 10.5px"><path d="M10.5 2.5 L14 13.5 L10.5 11 L7 13.5 Z" fill="var(--accent)"/></g></svg>'+compass(dir)+' '+Math.round(dir)+'\u00b0</span>'; }
   function sortVal(s,key){ if(key==="name")return s.name.toLowerCase(); if(key==="dir")return s.dir; if(key==="wind")return s.wind; if(key==="gust")return s.gust; if(key==="temp")return s.temp; if(key==="updated")return ageMinOf(s); return 0; }
   function renderTable(vis){
@@ -708,18 +748,17 @@
     var live=vis.filter(isLiveTier), dead=vis.filter(function(s){return !isLiveTier(s);}); var rows=live.slice();
     if(!custOn){ rows.sort(function(a,b){ var av=sortVal(a,state.sortKey),bv=sortVal(b,state.sortKey); if(av<bv)return -1*state.sortDir; if(av>bv)return 1*state.sortDir; return 0; }); }
     var tb=document.getElementById("tbody");
-    if(!vis.length){ tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
+    if(!vis.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
     function tableRow(s){ var ws=statusOf(s.wind), gs=statusOf(s.gust);
       return '<tr data-id="'+s.id+'"><td class="rowdrag" data-rowdrag="'+s.id+'" title="Drag to reorder">☰</td>'+
         '<td class="name">'+nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+statusDot(s)+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
         '<td>'+dirMini(s.dir)+'</td>'+
         '<td class="w-'+ws+'">'+fmt(s.wind)+' '+u+' '+trendChip(s)+'</td>'+
         '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+(isGusty(s)?' <span class="gusty sm" title="gusty">GUSTY</span>':'')+'</td>'+
-        '<td>'+s.temp+'\u00b0</td>'+
         '<td>'+updatedStr(s)+'</td>'+
         '<td class="spark" data-graph="'+s.id+'" title="hover for full graph">'+sparkSvg(sparkSeries(s),ws,84,22)+'</td>'+
         '</tr>'; }
-    tb.innerHTML=rows.map(tableRow).join("")+(dead.length?('<tr class="indiv"><td colspan="8">Inactive wind meters ('+dead.length+')</td></tr>'+dead.map(tableRow).join("")):"");
+    tb.innerHTML=rows.map(tableRow).join("")+(dead.length?('<tr class="indiv"><td colspan="7">Inactive wind meters ('+dead.length+')</td></tr>'+dead.map(tableRow).join("")):"");
   }
 
   // ---- chart view ----
