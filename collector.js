@@ -61,9 +61,24 @@ async function collectSkytech(page) {
       try {
         const gtxt = await post('c=graf&l=' + id);
         const arrs = [...gtxt.matchAll(/data\s*:\s*\[([^\]]*)\]/g)].map(m => nums(m[1]));
+        // skytech's direction series (arrs[2]) is NOT degrees — it's an index into the
+        // chart's compass category axis (e.g. ['SZ','Z','JZ','J','JV','V','SV','S','']).
+        // Find that axis and decode index -> Slovenian label -> degrees via DIRMAP.
+        let dirCats = null;
+        for (const cm of gtxt.matchAll(/categories\s*:\s*\[([^\]]*)\]/g)) {
+          const labs = cm[1].split(',').map(x=>x.trim().replace(/^['"]|['"]$/g,''));
+          if (labs.some(l => l==='SZ'||l==='JZ'||l==='SV'||l==='JV')) { dirCats = labs; break; }
+        }
+        const FIXED_DIR = [315,270,225,180,135,90,45,0]; // SZ,Z,JZ,J,JV,V,SV,S
+        const decodeDir = v => {
+          if (v==null || isNaN(v)) return null;
+          const idx = Math.round(v);
+          if (dirCats) { const lab = dirCats[idx]; return (lab && DIRMAP[lab]!=null) ? DIRMAP[lab] : null; }
+          return (idx>=0 && idx<FIXED_DIR.length) ? FIXED_DIR[idx] : null;
+        };
         rw = (arrs[0]||[]).map(v => +(v*3.6).toFixed(1));
         rg = (arrs[1]||[]).map(v => +(v*3.6).toFixed(1));
-        rd = (arrs[2]||[]).map(v => (v==null||isNaN(v))?null:+v);
+        rd = (arrs[2]||[]).map(decodeDir);
         const n = Math.min(rw.length, rg.length); rw = rw.slice(0,n); rg = rg.slice(0,n); rd = rd.length?rd.slice(0,n):[];
       } catch(e) {}
       let curWms=null, curGms=null, dirStr=null, temp=null, ts=null;
