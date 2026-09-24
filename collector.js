@@ -57,19 +57,20 @@ async function collectSkytech(page) {
     const out = [];
     for (const id of Object.keys(META)) {
       const meta = META[id], row = rowById[id];
-      let rw = [], rg = [];
+      let rw = [], rg = [], rd = [];
       try {
         const gtxt = await post('c=graf&l=' + id);
         const arrs = [...gtxt.matchAll(/data\s*:\s*\[([^\]]*)\]/g)].map(m => nums(m[1]));
         rw = (arrs[0]||[]).map(v => +(v*3.6).toFixed(1));
         rg = (arrs[1]||[]).map(v => +(v*3.6).toFixed(1));
-        const n = Math.min(rw.length, rg.length); rw = rw.slice(0,n); rg = rg.slice(0,n);
+        rd = (arrs[2]||[]).map(v => (v==null||isNaN(v))?null:+v);
+        const n = Math.min(rw.length, rg.length); rw = rw.slice(0,n); rg = rg.slice(0,n); rd = rd.length?rd.slice(0,n):[];
       } catch(e) {}
       let curWms=null, curGms=null, dirStr=null, temp=null, ts=null;
       if (row) { curWms=parseFloat(row[1]); curGms=parseFloat(row[2]); dirStr=row[3]; temp=parseFloat(row[4]); ts=parseTs(row[5]); }
       if (rw.length < 2) { const w = curWms!=null?+(curWms*3.6).toFixed(1):0, g = curGms!=null?+(curGms*3.6).toFixed(1):0; rw=[w,w]; rg=[g,g]; }
       const dir = (dirStr!=null && DIRMAP[dirStr]!=null) ? DIRMAP[dirStr] : 0;
-      out.push({ id:'sky_'+id.slice(0,8), name:meta.name, src:'skytech', web:'https://skytech.si/', lat:meta.lat, lon:meta.lon, elev:meta.elev, temp:temp!=null?temp:null, dir, real:true, rw, rg, series:rw.slice(-12), gust:rg[rg.length-1], obsTs:ts, stepMs:600000, cam:false, camUrl:'' });
+      out.push({ id:'sky_'+id.slice(0,8), name:meta.name, src:'skytech', web:'https://skytech.si/', lat:meta.lat, lon:meta.lon, elev:meta.elev, temp:temp!=null?temp:null, dir, real:true, rw, rg, rd, series:rw.slice(-12), gust:rg[rg.length-1], obsTs:ts, stepMs:600000, cam:false, camUrl:'' });
     }
     return out;
   }, SKY_META);
@@ -96,12 +97,13 @@ async function collectArso(st) {
     const recent = all.slice(-36);
     const rw = recent.map(p=>{ const n=num(p.ff_val); return n==null?0:n; });
     const rg = recent.map(p=>{ const n=num(p.ffmax_val); return n==null?(num(p.ff_val)||0):n; });
+    const rd = recent.map(p=>{ const n=num(p.dd_val); return n==null?null:n; });
     const times = recent.map(p=>Date.parse(p.valid));
     const newest = recent[recent.length-1];
     const coords = (f.geometry && f.geometry.coordinates) || [null,null];
     return { id:'arso_'+st.loc.toLowerCase(), name:st.name, src:'ARSO', web:'https://www.vreme.si/', lat:coords[1], lon:coords[0], elev:st.elev,
       real:true, cam:false, camUrl:'', temp:num(newest.t), dir:num(newest.dd_val)==null?0:num(newest.dd_val),
-      rw, rg, series:rw.slice(-12), gust:rg[rg.length-1], obsTs:Date.parse(newest.valid), stepMs:medianStep(times) };
+      rw, rg, rd, series:rw.slice(-12), gust:rg[rg.length-1], obsTs:Date.parse(newest.valid), stepMs:medianStep(times) };
   } catch(e) { console.error('ARSO', st.loc, 'failed:', e.message); return null; }
 }
 
