@@ -1,7 +1,7 @@
 <!-- Pure Mountain Weather — LIVE. Reads data.json (observed winds) every 5 min. Open-Meteo model fallback when stale. -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pure Mountain Weather — Soča wind</title>
+<title>PMW 2.0 — Soča wind</title>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -232,7 +232,19 @@
   .lchip .dot{width:10px;height:10px;border-radius:50%}
   .lchip.off{opacity:.4}
   .chartwrap{flex:1;min-height:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px;position:relative}
-  .chartwrap svg{width:100%;height:100%;display:block}
+  .chartwrap{display:flex;flex-direction:column}
+  .chartwrap > svg{width:100%;flex:1 1 auto;min-height:180px;display:block}
+  .chartdir{display:flex;flex-wrap:wrap;align-items:center;gap:5px 12px;padding:8px 2px 2px;border-top:1px solid var(--line);margin-top:6px;flex:none}
+  .chartdir .cdlbl{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;margin-right:2px}
+  .chartdir .cdchip{display:inline-flex;align-items:center;gap:4px;font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-dim)}
+  .chartdir .cda{flex:none} .chartdir .cdn{font-weight:600}
+  .chartdirlanes{border-top:1px solid var(--line);margin-top:6px;padding-top:5px;flex:none}
+  .chartdirlanes .cdlhdr{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;padding:0 0 3px}
+  .cdlrow{display:flex;align-items:center;gap:8px;padding:1px 0}
+  .cdlrow .nm{flex:none;width:96px;font:600 11px/1.1 "IBM Plex Sans",sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cdlrow .arrs{flex:1;display:flex;justify-content:space-between;align-items:center;min-width:0}
+  .cdlrow .cdrx{flex:none;display:inline-flex}
+  @media (max-width:560px){ .cdlrow .nm{width:66px;font-size:10px} }
   .chair{position:absolute;top:10px;bottom:30px;width:1px;background:var(--ink-dim);opacity:.55;pointer-events:none;display:none}
   .ctip{position:absolute;pointer-events:none;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;display:none;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:150px}
   .ctip .th{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint);margin-bottom:6px}
@@ -262,6 +274,154 @@
   .cammodal .camframe.big{width:100%;border-radius:10px;overflow:hidden;position:relative}
   .cammodal #scrubImg{width:100%;display:block;background:var(--cam-bg);aspect-ratio:16/9;object-fit:cover}
   .scrubtime{position:absolute;left:10px;bottom:10px;background:rgba(6,12,18,.74);color:#eaf1f8;font-family:"IBM Plex Mono",monospace;font-size:12px;padding:3px 9px;border-radius:6px;pointer-events:none}
+  .scrubload{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--accent);border-radius:0 3px 3px 0;transition:width .18s ease;pointer-events:none;box-shadow:0 0 6px var(--accent)}
+  /* ---- 2.0 additions ---- */
+  .sdotb{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin-left:7px;box-shadow:0 0 0 2px var(--panel)}
+  .sdotb.on{background:#34c96b} .sdotb.off{background:#f2564a}
+  /* ---- 2.0 compass-dial card (style C) ---- */
+  .card.c-dial .head{display:flex;align-items:center;gap:8px;margin-bottom:11px}
+  .card.c-dial .head .nrow{flex:1;min-width:0;display:flex;align-items:center;gap:6px}
+  .card.c-dial .head .nrow .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .card.c-dial .head .nrow .elev{flex:none}
+  .card.c-dial .head .nrow .sdotb{flex:none;margin-left:2px}
+  .card.c-dial .head .nrow .upd{flex:none;white-space:nowrap;margin-left:6px}
+  .card.c-dial .nrow .hsp{flex:1 1 auto}
+  .card.c-dial .headbtns{flex:none;display:flex;gap:6px}
+  .card.c-dial .cbody{display:block}
+  .card.c-dial .cmain{display:flex;align-items:center;gap:14px}
+  .card.c-dial .cdial{flex:none}
+  .card.c-dial .cdial svg{width:100%;height:100%;display:block}
+  .card.c-dial .cright{flex:1;min-width:0}
+  .card.c-dial .big{display:flex;align-items:baseline;gap:5px}
+  .card.c-dial .big .val{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:.95}
+  .card.c-dial .big .unit{font-size:13px;color:var(--ink-dim);font-weight:600}
+  .card.c-dial .gustline{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink-dim);margin-top:4px}
+  .card.c-dial .gustline b{font-size:15px}
+  .card.c-dial .gustline .w-go{color:var(--go)} .card.c-dial .gustline .w-caution{color:var(--caution)} .card.c-dial .gustline .w-danger{color:var(--danger)}
+  .card.c-dial .dirline{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-faint);margin-top:2px}
+  .card.c-dial .dirline b{color:var(--ink-dim)}
+  .card.c-dial .cchart{margin-top:12px;cursor:pointer}
+  .card.c-dial .sparklab{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);margin-top:3px}
+  .card.c-dial .sparklab{text-align:left}
+  .gustflag{font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:700;color:var(--caution);border:1px solid rgba(242,166,61,.4);border-radius:5px;padding:0 5px;margin-left:5px;text-transform:uppercase;letter-spacing:.03em}
+  /* skytech-style tab (light) */
+  .skyview{height:100%;overflow:auto;background:#e9f3fb;color:#12303f}
+  .skywrap{max-width:720px;margin:0 auto;padding:14px 16px 48px}
+  .skyview .skygrp{color:#2b6da8;font-size:16px;font-weight:700;margin:16px 0 8px}
+  .skytbl{width:100%;border-collapse:collapse;background:#fff;border:1px solid #cfe0ef;margin-bottom:8px}
+  .skytbl th{background:#dcebf8;color:#2b4a5f;font-weight:600;padding:7px 10px;border:1px solid #cfe0ef;text-align:center;font-size:12.5px}
+  .skytbl th:first-child{text-align:left}
+  .skytbl td{padding:6px 10px;border:1px solid #e6f0f8;text-align:center;color:#20404f;font-size:13px}
+  .skytbl td.skn{text-align:left}
+  .skytbl td.skn a{color:#1f6fb2;text-decoration:none;font-weight:600}
+  .skytbl td.skn a:hover{text-decoration:underline}
+  .skytbl td.skt{font-family:"IBM Plex Mono",monospace;color:#5a7488;font-size:12px;white-space:nowrap}
+  .skytbl td.skw,.skytbl td.skg{font-weight:600}
+  .skytbl td.sk-go{color:#1a8f4a} .skytbl td.sk-caution{color:#c47a10} .skytbl td.sk-danger{color:#c0392b}
+  .skytbl tbody tr:nth-child(even) td{background:#f5fafe}
+  .skytbl td.skn .sklink{color:#1f6fb2;font-weight:600;cursor:pointer}
+  .skytbl td.skn .sklink:hover{text-decoration:underline}
+  .skytbl td.skt{display:flex;align-items:center;gap:6px;justify-content:center}
+  .skytbl td.skt .sdotb{box-shadow:0 0 0 2px #fff;margin:0}
+  /* direction-over-time lane in the station graph */
+  .graphmodal .dirlane{margin-top:10px;border-top:1px solid var(--line);padding-top:9px;overflow-x:auto}
+  .graphmodal .dirlane .dlsvg{display:block}
+  .graphreadout .grd{color:var(--ink-dim)}
+  .dirlane .dllbl{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:7px}
+  .dirlane .dlno{color:var(--ink-faint);font-size:12px;text-transform:none;letter-spacing:0}
+  .dirlane .dlrow{display:flex;flex-wrap:wrap;gap:8px 12px}
+  .dirlane .dli{display:flex;flex-direction:column;align-items:center;gap:1px}
+  .dirlane .dlt{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-dim)}
+  .dirlane .dlh{font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--ink-faint)}
+  /* ---- 2.0b: compact header, side-chart card, tight list ---- */
+  header{padding:6px 14px}
+  .brand h1{font-size:15px}
+  .brand .status{font-size:11px}
+  .viewlbl{display:none}
+  .lists{gap:5px}
+  .lists .ltab{padding:3px 12px;font-size:12.5px}
+  .controls{gap:6px}
+  .act{padding:5px 9px}
+  .card.c-dial{padding:9px 12px}
+  .card.c-dial .head{margin-bottom:7px}
+  .card.c-dial .big .val{font-size:29px}
+  .card.c-dial .cbody{display:flex;align-items:center;gap:14px}
+  .card.c-dial .cleft{flex:0 0 auto}
+  .card.c-dial .cmain{display:flex;align-items:center;gap:11px}
+  .card.c-dial .gustline{margin-top:3px}
+  .card.c-dial .dirline{margin-top:1px}
+  .card.c-dial .cchart{flex:1 1 auto;min-width:64px;margin-top:0;cursor:pointer}
+  .card.c-dial .cchart{display:flex;flex-direction:column;justify-content:center}
+  .card.c-dial .cchart > svg.ccsvg{width:100%;height:58px;display:block}
+  .card.c-dial .cdrow{display:flex;justify-content:space-between;align-items:center;margin-top:3px;padding:0 1px}
+  .card.c-dial .cdrx{flex:none} .card.c-dial .cdrx svg{width:13px;height:13px;display:block}
+  .wt{font-size:12px}
+  .wt th{font-size:10px;padding:5px 8px;letter-spacing:.02em}
+  .wt td{padding:4px 8px;line-height:1.2}
+  .wt .name{font-weight:600}
+  .wt .dirmini{font-size:12px;color:var(--ink-dim)}
+  .wt .tcell,.wt .scell{font-family:"IBM Plex Mono",monospace;color:var(--ink-dim);font-size:12px}
+  @media (max-width:560px){
+    header{padding:5px 10px}
+    .brand h1{display:none}
+    .brand .status{font-size:10px}
+    .viewctl{display:none}
+    .act .btxt{display:none}
+    .lists .ltab{padding:3px 10px;font-size:12px}
+    .card.c-dial .big .val{font-size:27px}
+    .card.c-dial .cchart{min-width:54px}
+    .card.c-dial .cmain{gap:9px}
+    .card.c-dial .cbody{flex-direction:column;align-items:stretch;gap:8px}
+    .card.c-dial .cchart > svg.ccsvg{height:46px}
+    .wt{font-size:12px}
+    .wt th,.wt td{padding:5px 6px}
+  }
+  @media (max-width:560px){
+    .card.c-dial .big .val{font-size:30px}
+    .card.c-dial .cmain{gap:12px}
+    .card.c-dial .head .nrow .upd{font-size:10px}
+    .card.c-dial .sparklab{padding-right:26px}
+    .card.c-dial{padding-bottom:15px}
+  }
+  .card{position:relative}
+  details.inactive{margin-top:12px;border-top:1px dashed var(--line);padding-top:9px}
+  details.inactive>summary{cursor:pointer;font-size:13px;color:var(--ink-dim);font-weight:600;list-style:none;padding:3px 2px}
+  details.inactive>summary::-webkit-details-marker{display:none}
+  details.inactive>summary:before{content:"\25B8 ";color:var(--ink-faint)}
+  details.inactive[open]>summary:before{content:"\25BE "}
+  details.inactive>summary .ct{color:var(--ink-faint);font-weight:500}
+  .inrow{display:flex;align-items:center;gap:7px;padding:6px 4px;font-size:13px;opacity:.7;border-bottom:1px solid var(--line)}
+  .inrow .inupd{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-faint)}
+  .inrow .elev{color:var(--ink-faint)}
+  tr.indiv td{background:var(--panel);color:var(--ink-dim);font-size:11.5px;font-weight:600;letter-spacing:.03em;padding:6px 10px;border-top:1px dashed var(--line)}
+  .ltab.preset{border:1px solid var(--line)}
+  .camlook{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);margin-top:2px;font-weight:500;line-height:1.25}
+  .setrow.col{flex-direction:column;align-items:stretch;gap:6px}
+  #setPresets .prow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;font-size:13px;border-bottom:1px solid var(--line)}
+  #setPresets .prow button{background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:6px;cursor:pointer;padding:1px 8px;font-size:12px}
+  #setPresets .newrow{display:flex;gap:6px;margin-top:7px}
+  #setPresets .newrow input{flex:1;min-width:0;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--ink)}
+  #setPresets .newrow button{padding:5px 12px;border:1px solid var(--accent);background:var(--accent);color:#04120a;border-radius:7px;cursor:pointer;font-weight:600}
+  #setGroups{max-height:300px;overflow:auto;margin-top:2px}
+  #setGroups .grow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 2px;font-size:12.5px;border-bottom:1px solid var(--line)}
+  #setGroups .gnm .gel{color:var(--ink-faint);font-family:"IBM Plex Mono",monospace;font-size:11px}
+  #setGroups .gbtns{display:flex;gap:5px;flex:none}
+  #setGroups .gb{background:none;border:1px solid var(--line);color:var(--ink-dim);border-radius:6px;padding:2px 10px;font-size:11.5px;cursor:pointer}
+  #setGroups .gb.on{background:var(--accent);color:#04120a;border-color:var(--accent);font-weight:600}
+  .setnote2{font-size:11.5px;color:var(--ink-faint);line-height:1.4}
+  @media (max-width:560px){
+    /* 2.0 portrait density */
+    .card{padding:9px 10px}
+    .card .nrow{font-size:13px;gap:4px}
+    .card .big .val{font-size:26px}
+    .card .ministats{font-size:11px}
+    .card .sdotb{position:absolute;right:11px;bottom:10px;margin:0;width:11px;height:11px}
+    #cards{gap:7px}
+    .ltab{padding:4px 9px;font-size:12px}
+    #map{height:46vh;min-height:230px}
+    details.inactive>summary{font-size:12px}
+    .inrow{font-size:12px}
+  }
   .scrubbar{display:flex;align-items:center;gap:10px;margin-top:11px}
   .scrubbar input[type=range]{flex:1;accent-color:var(--accent);cursor:pointer}
   .sbtn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;height:30px;min-width:40px;padding:0 11px;cursor:pointer;font-size:13px;font-family:"IBM Plex Mono",monospace}
@@ -322,6 +482,14 @@
   .camtile .tbtn{width:26px;height:26px;border:0;border-radius:6px;background:rgba(6,12,18,.7);color:#dfe8f0;cursor:pointer;font-size:13px;line-height:1}
   .camtile .tbtn:hover{background:rgba(6,12,18,.92)}
   .camtile.dragging{opacity:.4}
+  .camtile .livebadge{position:absolute;top:7px;left:7px;display:inline-flex;align-items:center;gap:5px;background:rgba(214,32,42,.94);color:#fff;border:0;border-radius:6px;padding:3px 9px;font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.05em;cursor:pointer;z-index:3;box-shadow:0 1px 7px rgba(0,0,0,.45)}
+  .camtile .livebadge:hover{background:rgba(232,44,54,1)}
+  .camtile .livebadge .ldot{width:7px;height:7px;border-radius:50%;background:#fff;animation:lpulse 1.5s infinite}
+  @keyframes lpulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .cammodal .camframe.live{aspect-ratio:16/9;width:100%;border-radius:10px;overflow:hidden;background:#000;position:relative}
+  .cammodal .camframe.live img{width:100%;height:100%;object-fit:cover;display:block}
+  .cammodal .livetag{position:absolute;top:9px;left:9px;display:inline-flex;align-items:center;gap:5px;background:rgba(214,32,42,.94);color:#fff;border-radius:6px;padding:3px 9px;font:700 10px/1 "IBM Plex Mono",monospace;letter-spacing:.05em}
+  .cammodal .livetag .ldot{width:7px;height:7px;border-radius:50%;background:#fff;animation:lpulse 1.5s infinite}
   .camtile .live.off{background:#3a2530;color:#f0b8c0}
   .camtile.dropbefore{box-shadow:-3px 0 0 var(--accent)}
   .camtile .cap .nm[contenteditable]{outline:1px dashed var(--accent);border-radius:3px;padding:0 3px}
@@ -346,6 +514,7 @@
   .hovergraph .hgno{font-size:11px;color:var(--ink-faint);padding:8px 4px 12px}
   .hovergraph .hgbox svg{display:block}
   .hovergraph .graphreadout.hgread{font-size:12px;padding:1px 2px 5px;gap:12px}
+  .hovergraph .cdrow{display:flex;justify-content:space-between;align-items:center;gap:4px;margin-top:5px;padding:5px 2px 0;border-top:1px solid var(--line)}
   .modal.graphmodal{max-width:min(820px,95vw)}
   .graphmodal .ghspan{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;color:var(--ink-dim);margin-left:8px}
   .graphmodal .graphbox{margin-top:2px;overflow-x:auto}
@@ -369,7 +538,7 @@
   <div class="lists" id="lists"></div>
   <div class="spacer"></div>
   <div class="controls">
-    <div class="ctl viewctl"><label class="viewlbl">View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button></div></div>
+    <div class="ctl viewctl"><label class="viewlbl">View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button><button data-v="sky">Skytech</button></div></div>
     <button class="act" id="settingsBtn">&#9881; <span class="btxt">Settings</span></button>
     <button class="act" id="refresh"><span id="refIcon">&#8635;</span> <span class="btxt">Refresh</span></button>
   </div>
@@ -394,6 +563,7 @@
     <div class="camnote" id="camnote"></div>
     <div class="camgroups" id="camgrid"></div>
   </div>
+  <div class="skyview" id="skyview" style="display:none"></div>
 </div>
 
 
@@ -402,6 +572,7 @@
   <button data-v="list">List</button>
   <button data-v="chart">Chart</button>
   <button data-v="cams">Cams</button>
+  <button data-v="sky">Skytech</button>
 </nav>
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
@@ -423,9 +594,9 @@
 
   var state={ unit:"ms", caution:13.6, danger:21.4, active:"all", view:"map", sortKey:"custom", sortDir:1,
     chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark", skin:"dark", showGusts:false, elevUnit:"m",
-    barbScale:1, indicator:"barb", calmScale:1, sparkRange:12,
+    barbScale:1, indicator:"barb", calmScale:1, sparkRange:2,
     camNames:{}, camOrder:[], camHidden:{},
-    order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[] };
+    order:STATIONS.map(function(s){return s.id;}), mapHidden:{}, lists:[], upper:[], lower:[], groupsInit:false };
   var editingList=null, openPop=null, lastChart=null;
 
   var UNIT_LABEL={kn:"kt",ms:"m/s",kmh:"km/h",mph:"mph"};
@@ -435,7 +606,7 @@
 
   function genHi(s){
     // Real station: build history points from rw/rg arrays, anchored at the real observation time (obsTs), 10-min steps.
-    if(s.real){ var m=s.rw.length,rp=[],k; var anchor=s.obsTs||Date.now(), step=s.stepMs||600000; for(k=0;k<m;k++){ rp.push({t:anchor-(m-1-k)*step, wind:s.rw[k], gust:s.rg[k]}); } s.hi=rp; s.wind=s.rw[m-1]; s.gust=s.rg[m-1]; if(!s.series||!s.series.length)s.series=s.rw.slice(-12); return; }
+    if(s.real){ var m=s.rw.length,rp=[],k; var anchor=s.obsTs||Date.now(), step=s.stepMs||600000; for(k=0;k<m;k++){ rp.push({t:anchor-(m-1-k)*step, wind:s.rw[k], gust:s.rg[k], dir:(s.rd&&s.rd.length&&s.rd[k]!=null)?s.rd[k]:s.dir}); } s.hi=rp; s.wind=s.rw[m-1]; s.gust=s.rg[m-1]; if(!s.series||!s.series.length)s.series=s.rw.slice(-12); return; }
     var n=145, pts=[], lvl=s.series[0], amp=Math.max(3,s.wind*0.5), i;
     for(i=0;i<n;i++){ var diurnal=amp*Math.sin(i/n*Math.PI*3 + s.dir/40); var noise=(Math.random()*2-1)*amp*0.35;
       lvl += (s.wind - lvl)*0.04; var wind=Math.max(0, lvl*0.6 + s.wind*0.4 + diurnal*0.5 + noise); var gust=wind*(1.4+Math.random()*0.4);
@@ -455,7 +626,7 @@
     if(typeof window!=="undefined" && window.storage){ try{ window.storage.set(key,JSON.stringify(val),false).catch(function(){}); }catch(e){} return; }
     try{ window.localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
   }
-  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden,showGusts:state.showGusts,elevUnit:state.elevUnit}); }
+  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden,showGusts:state.showGusts,elevUnit:state.elevUnit,upper:state.upper,lower:state.lower,groupsInit:state.groupsInit}); }
   function elevStr(m){ if(m==null||m==="")return ""; return state.elevUnit==="ft"?(Math.round(m*3.28084)+"ft"):(m+"m"); }
   // Cross-device sync: pack lists + settings into a link (#sync=…). Opening that link on another
   // device imports them. Manual carry (no server) — this is the local-storage-per-device workaround.
@@ -482,30 +653,22 @@
   function pad2(n){ return (n<10?"0":"")+n; }
   function ageMinOf(s){ if(s.obsTs){ return Math.max(0,Math.round((Date.now()-s.obsTs)/60000)); } return (typeof s.ageMin==="number")?s.ageMin:null; }
   function updatedStr(s){ var age=ageMinOf(s); var d=s.obsTs?new Date(s.obsTs):new Date(Date.now()-(age||0)*60000); return pad2(d.getHours())+":"+pad2(d.getMinutes())+(age==null?"":" ("+age+"m)"); }
+  function sinceStr(s){ var a=ageMinOf(s); if(a==null)return "—"; if(a<60)return a+"m"; if(a<1440)return Math.round(a/60)+"h"; return Math.round(a/1440)+"d"; }
   function escapeHtml(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];});}
 
   function orderedAll(){ var seen={}; var out=state.order.map(byId).filter(function(s){ if(!s||seen[s.id])return false; seen[s.id]=1; return true; }); STATIONS.forEach(function(s){ if(!seen[s.id])out.push(s); }); return out; }
-  function visibleStations(){ var all=orderedAll(); if(state.active==="all")return all; var l=listById(state.active); return all.filter(function(s){ return l && l.members.indexOf(s.id)>=0; }); }
+  var ALT_PRESETS=[{id:"upper",name:"Upper"},{id:"lower",name:"Lower"}]; // membership chosen by JB in Settings
+  function visibleStations(){ var all=orderedAll(); if(state.active==="all")return all;
+    if(state.active==="upper") return all.filter(function(s){ return (state.upper||[]).indexOf(s.id)>=0; });
+    if(state.active==="lower") return all.filter(function(s){ return (state.lower||[]).indexOf(s.id)>=0; });
+    var l=listById(state.active); return all.filter(function(s){ return l && l.members.indexOf(s.id)>=0; }); }
 
   // ---- list tabs ----
   function renderLists(){
-    var el=document.getElementById("lists"); var html="";
-    html+='<div class="ltab '+(state.active==="all"?"on":"")+'" data-list="all">All <span class="ct">'+STATIONS.length+'</span></div>';
-    state.lists.forEach(function(l){
-      if(editingList===l.id){ html+='<input class="newinput" data-rename="'+l.id+'" value="'+escapeHtml(l.name)+'">'; }
-      else{ var icon=l.builtin?"\u2605 ":""; html+='<div class="ltab '+(state.active===l.id?"on":"")+'" data-list="'+l.id+'">'+icon+escapeHtml(l.name)+' <span class="ct">'+l.members.length+'</span></div>'; }
-    });
-    var a=listById(state.active);
-    if(a && !a.builtin && editingList!==a.id){ html+='<span class="listmini"><button data-editlist="'+a.id+'">rename</button><button data-dellist="'+a.id+'">delete</button></span>'; }
-    if(editingList==="__new__"){ html+='<input class="newinput" id="newListInput" placeholder="List name\u2026">'; }
-    else{ html+='<div class="ltab newl" data-newlist="1">+ New list</div>'; }
+    var el=document.getElementById("lists"); if(!el)return; var html="";
+    html+='<div class="ltab '+(state.active==="all"?"on":"")+'" data-list="all">All</div>';
+    ALT_PRESETS.forEach(function(p){ html+='<div class="ltab '+(state.active===p.id?"on":"")+'" data-list="'+p.id+'">'+escapeHtml(p.name)+'</div>'; });
     el.innerHTML=html;
-    var ni=document.getElementById("newListInput");
-    if(ni){ ni.focus(); ni.addEventListener("keydown",function(e){ if(e.key==="Enter")commitNewList(ni.value); if(e.key==="Escape"){editingList=null;renderLists();} }); ni.addEventListener("blur",function(){ commitNewList(ni.value); }); }
-    var ri=el.querySelector("[data-rename]");
-    if(ri){ ri.focus(); ri.select&&ri.select(); var lid=ri.getAttribute("data-rename");
-      ri.addEventListener("keydown",function(e){ if(e.key==="Enter")ri.blur(); if(e.key==="Escape"){editingList=null;renderLists();} });
-      ri.addEventListener("blur",function(){ var l=listById(lid); if(l){l.name=ri.value.trim()||l.name;} editingList=null; persist(); renderLists(); }); }
   }
   function commitNewList(name){ name=(name||"").trim(); editingList=null;
     if(name){ var id="l"+Math.random().toString(36).slice(2,7); state.lists.push({id:id,name:name,builtin:false,members:[]}); state.active=id; persist(); }
@@ -513,9 +676,9 @@
 
   // ---- card view ----
   // Card sparkline series = a station's own history within the chosen span (state.sparkRange hrs), downsampled.
-  function sparkSeries(s){
+  function sparkSeries(s,hrs){
     if(!s.hi || !s.hi.length) return (s.series&&s.series.length)?s.series:[s.wind||0,s.wind||0];
-    var since=Date.now()-(state.sparkRange||12)*3600000;
+    var since=Date.now()-((hrs||state.sparkRange)||12)*3600000;
     var w=s.hi.filter(function(p){return p.t>=since;});
     if(w.length<2) w=s.hi.slice(-2);
     var vals=w.map(function(p){return p.wind;});
@@ -524,12 +687,19 @@
   }
   function compassSvg(dir){ var rot=(dir==null||isNaN(dir))?0:(dir+180);
     return '<div class="compass"><svg viewBox="0 0 38 38"><circle class="ring" cx="19" cy="19" r="16"/><g class="arrow" style="transform:rotate('+rot+'deg)"><path d="M19 5 L24 22 L19 18 L14 22 Z"/></g></svg></div>'; }
+  function compassDial(dir,size){ size=size||64; var has=!(dir==null||isNaN(dir)); var rot=has?(dir+180):0;
+    return '<div class="cdial" style="width:'+size+'px;height:'+size+'px"><svg viewBox="0 0 76 76">'+
+      '<circle cx="38" cy="38" r="34" fill="none" stroke="var(--line)" stroke-width="2"/>'+
+      '<text x="38" y="16" fill="var(--ink-faint)" font-size="8" text-anchor="middle" font-family="IBM Plex Mono">N</text>'+
+      (has?('<g style="transform:rotate('+rot+'deg);transform-origin:38px 38px"><path d="M38 16 L38 60 M38 16 L31 25 M38 16 L45 25" stroke="var(--accent)" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'):'<circle cx="38" cy="38" r="3.5" fill="var(--ink-faint)"/>')+
+      '</svg></div>'; }
+  function dirArrow(dir,col){ var has=!(dir==null||isNaN(dir)), rot=has?(dir+180):0; return '<svg class="cda" width="15" height="15" viewBox="0 0 16 16">'+(has?('<g style="transform:rotate('+rot+'deg);transform-origin:8px 8px"><path d="M8 2 L8 14 M8 2 L5 6 M8 2 L11 6" stroke="'+col+'" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>'):('<circle cx="8" cy="8" r="2" fill="'+col+'"/>'))+'</svg>'; }
   function sparkSvg(series,status,w,h){
     w=w||110; h=h||30; var pad=3,min=Math.min.apply(null,series),max=Math.max.apply(null,series),rng=(max-min)||1;
     var col=status==="danger"?"var(--danger)":status==="caution"?"var(--caution)":"var(--go)";
     var pts=series.map(function(v,i){ var x=pad+(i/(series.length-1))*(w-2*pad); var y=h-pad-((v-min)/rng)*(h-2*pad); return x.toFixed(1)+","+y.toFixed(1); }).join(" ");
     var lx=pad+(w-2*pad), ly=h-pad-((series[series.length-1]-min)/rng)*(h-2*pad);
-    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="2.2" fill="'+col+'"/></svg>'; }
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none"><polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="2.2" fill="'+col+'"/></svg>'; }
   // Shared scrubbable history graph: wind (solid, status-coloured) + gust (dashed grey) over the last
   // <span> h, even-hour ticks, caution/danger lines. Draws into `container`, returns an API to move a
   // crosshair and read the nearest sample. Used by the map hover preview AND the big click-open graph.
@@ -564,13 +734,13 @@
       scrubClientX:function(cx){ var r=svgEl.getBoundingClientRect(); var px=Math.max(x0,Math.min(x1,(cx-r.left)*(W/(r.width||W)))); return showAt(since+(px-x0)/(x1-x0)*sp); },
       scrubFrac:function(f){ f=f<0?0:f>1?1:f; return showAt(since+f*sp); } };
   }
-  function readoutHtml(best,u){ var d=new Date(best.t); return '<span class="grtime">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</span><span class="grw wind">wind <b>'+fmt(best.wind)+'</b> '+u+'</span><span class="grg">gust <b>'+fmt(best.gust)+'</b> '+u+'</span>'; }
+  function readoutHtml(best,u){ var d=new Date(best.t); return '<span class="grtime">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</span><span class="grw wind">wind <b>'+fmt(best.wind)+'</b> '+u+'</span><span class="grg">gust <b>'+fmt(best.gust)+'</b> '+u+'</span>'+((best.dir!=null&&!isNaN(best.dir))?'<span class="grd">dir <b>'+compass(best.dir)+'</b></span>':''); }
   function wireHoverGraph(){
     var hg=document.getElementById("hoverGraph"); if(!hg)return;
     var api=null, curEl=null;
     function place(el){ var r=el.getBoundingClientRect(), w=hg.offsetWidth||400, h=hg.offsetHeight||220; var x=r.left; if(x+w>window.innerWidth-8)x=window.innerWidth-w-8; if(x<8)x=8; var y=r.top-h-10; if(y<8)y=r.bottom+10; hg.style.left=x+"px"; hg.style.top=y+"px"; }
     document.addEventListener("mouseover",function(e){ var g=e.target.closest&&e.target.closest("[data-graph]"); if(!g)return; var s=byId(g.getAttribute("data-graph")); if(!s)return;
-      hg.innerHTML='<div class="hgttl">'+escapeHtml(s.name)+'</div><div class="graphreadout hgread" id="hgRead"><span class="grtime">move across the mini-graph &rarr;</span></div><div class="hgbox" id="hgBox"></div>';
+      hg.innerHTML='<div class="hgttl">'+escapeHtml(s.name)+'</div><div class="graphreadout hgread" id="hgRead"><span class="grtime">move across the mini-graph &rarr;</span></div><div class="hgbox" id="hgBox"></div>'+cardDirRow(s);
       hg.style.display="block";
       api=renderScrubGraph(document.getElementById("hgBox"), s, Math.min(440,(window.innerWidth||440)-24), 194); curEl=g; place(g); });
     document.addEventListener("mousemove",function(e){ if(hg.style.display!=="block")return; var g=e.target.closest&&e.target.closest("[data-graph]"); if(g&&g===curEl&&api){ var r=g.getBoundingClientRect(); var best=api.scrubFrac((e.clientX-r.left)/(r.width||1)); var ro=document.getElementById("hgRead"); if(best&&ro)ro.innerHTML=readoutHtml(best,UNIT_LABEL[state.unit]); } else if(!g){ hg.style.display="none"; api=null; curEl=null; } });
@@ -586,14 +756,17 @@
     var u=UNIT_LABEL[state.unit], spanH=state.sparkRange||12;
     modal.innerHTML='<div class="mhead"><h3>'+escapeHtml(s.name)+' <span class="ghspan">last '+spanH+' h</span></h3><button class="close" data-close="1">✕</button></div>'
       +'<div class="graphreadout" id="graphReadout"><span class="grtime">move across →</span><span class="grw wind">wind –</span><span class="grg">gust –</span></div>'
-      +'<div class="graphbox" id="graphBox"></div>';
+      +'<div class="graphbox" id="graphBox"></div><div class="dirlane" id="dirLaneBox"></div>';
     document.getElementById("overlay").classList.add("open");
     var box=document.getElementById("graphBox");
     var W=Math.max(280,Math.min(760,(box.clientWidth||window.innerWidth-48)));
     var H=Math.max(210,Math.min(360,Math.round((window.innerHeight||600)*0.44)));
-    var api=renderScrubGraph(box,s,W,H); if(!api)return;
+    var api=renderScrubGraph(box,s,W,H);
+    if(api){ dirLaneAligned(s,api); } else { var dlb0=document.getElementById("dirLaneBox"); if(dlb0)dlb0.innerHTML='<span class="dllbl">Direction</span> <span class="dlno">no direction history yet</span>'; }
+    if(!api)return;
     var readout=document.getElementById("graphReadout");
     function upd(best){ if(best&&readout)readout.innerHTML=readoutHtml(best,u); }
+    if(api.scrubFrac)upd(api.scrubFrac(1));
     api.svgEl.style.cursor="crosshair";
     api.svgEl.addEventListener("pointermove",function(e){ upd(api.scrubClientX(e.clientX)); });
     api.svgEl.addEventListener("pointerdown",function(e){ upd(api.scrubClientX(e.clientX)); });
@@ -601,6 +774,8 @@
   // Freshness by station age: live <1h, "not live" (orange) 1–24h, offline (red) >24h.
   function freshTier(s){ if(!s.real)return "sample"; var a=ageMinOf(s); if(a==null)return "live"; if(a>1440)return "offline"; if(a>60)return "old"; return "live"; }
   function badge(s){ var t=freshTier(s); if(t==="sample")return '<span class="samp">sample</span>'; if(t==="offline")return '<span class="boff">OFFLINE</span>'; if(t==="old")return '<span class="bstale">NOT&nbsp;LIVE</span>'; return '<span class="live">LIVE</span>'; }
+  function isLiveTier(s){ var t=freshTier(s); return t==="live"||t==="sample"; }
+  function statusDot(s){ var on=isLiveTier(s); return '<span class="sdotb '+(on?"on":"off")+'" title="'+(on?"live":"not live")+'"></span>'; }
   // Even-hour-aligned time ticks across [since,end] for the history graphs.
   function timeTicks(since,end){ var span=end-since; var stepH=span<=3*3600000?1:span<=16*3600000?2:4; var step=stepH*3600000; var d=new Date(since); d.setMinutes(0,0,0); d.setHours(d.getHours()-(d.getHours()%stepH)); var t=d.getTime(); if(t<since)t+=step; var out=[]; for(;t<=end && out.length<24;t+=step)out.push(t); if(!out.length)out.push(since,end); return out; }
   function srcTag(s,cls){ if(s.web) return '<a class="'+cls+'" href="'+s.web+'" target="_blank" rel="noopener">'+s.src+'</a>'; return '<span class="'+cls+'">'+s.src+'</span>'; }
@@ -630,46 +805,76 @@
   }
   function trendChip(s){ var t=windTrend(s); if(t>0) return '<span class="trend t-up" title="wind building over the last hour">↑</span>'; if(t<0) return '<span class="trend t-dn" title="wind easing over the last hour">↓</span>'; return '<span class="trend t-flat" title="wind steady over the last hour">→</span>'; }
 
+  function cardDirRow(s){
+    var span=(state.sparkRange||2)*3600000, cut=Date.now()-span;
+    var pts=(s.hi||[]).filter(function(p){return p.t>=cut && p.dir!=null && !isNaN(p.dir);});
+    if(pts.length<2) pts=(s.hi||[]).filter(function(p){return p.dir!=null && !isNaN(p.dir);});
+    if(!pts.length) return "";
+    var N=Math.min(8,pts.length), items=[];
+    for(var i=0;i<N;i++){ var p=pts[Math.round(i*(pts.length-1)/((N-1)||1))]; items.push('<span class="cdrx" title="'+compass(p.dir)+'">'+dirArrow(p.dir,"var(--ink-dim)")+'</span>'); }
+    return '<div class="cdrow">'+items.join("")+'</div>';
+  }
+  function cardChart(s){
+    var span=(state.sparkRange||2)*3600000, cut=Date.now()-span;
+    var pts=(s.hi||[]).filter(function(p){return p.t>=cut;});
+    if(pts.length<2) pts=(s.hi||[]).slice(-10);
+    if(pts.length<2){ var w0=s.wind||0; pts=[{wind:w0},{wind:w0}]; }
+    var vals=pts.map(function(p){return disp(p.wind);});
+    var mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals);
+    var rng=Math.max(mx-mn, mx*0.3, 1), mid=(mn+mx)/2, lo=mid-rng/2;
+    var st=statusOf(s.wind), col=st==="danger"?"var(--danger)":st==="caution"?"var(--caution)":"var(--go)";
+    var W=100,H=30,pad=2.5;
+    var d=vals.map(function(v,i){ var x=pad+(vals.length<2?0.5:i/(vals.length-1))*(W-2*pad); var y=H-pad-((v-lo)/rng)*(H-2*pad); return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1); }).join(' ');
+    return '<svg class="ccsvg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none"><path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>';
+  }
   function cardHtml(s){
     var st=statusOf(s.wind), gs=statusOf(s.gust), u=UNIT_LABEL[state.unit];
-    var ser=sparkSeries(s), mn=Math.min.apply(null,ser), mx=Math.max.apply(null,ser);
-    return '<div class="card" data-id="'+s.id+'" draggable="true"><div class="head"><div>'+
-      '<div class="nrow"><span class="drag" title="Drag to reorder">\u2630</span>'+
-      nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+badge(s)+'<span class="upd">'+updatedStr(s)+'</span></div></div>'+
-      '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'<button class="mini" data-lists="'+s.id+'">\u2630 Lists</button></div></div>'+
-      '<div class="cbody"><div class="cinfo">'+compassSvg(s.dir)+
-      '<div><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span>'+trendChip(s)+'<span class="dir-inline">from '+Math.round(s.dir)+'\u00b0 '+compass(s.dir)+'</span></div>'+
-      '<div class="ministats">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+' &middot; '+s.temp+'\u00b0</div></div></div>'+
-      '<div class="cchart" data-graph="'+s.id+'" title="hover for full graph">'+sparkSvg(ser,st,132,40)+'<div class="sparklab">'+(state.sparkRange||12)+'&#8202;h &middot; min '+fmt(mn)+' / max '+fmt(mx)+'</div></div></div>'+
+    var dirTxt=(s.dir==null||isNaN(s.dir))?'\u2014':('from <b>'+compass(s.dir)+'</b> \u00b7 '+Math.round(s.dir)+'\u00b0');
+    return '<div class="card c-dial" data-id="'+s.id+'">'+
+      '<div class="head"><div class="nrow">'+
+      nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span><span class="hsp"></span>'+statusDot(s)+'<span class="upd">'+updatedStr(s)+'</span></div>'+
+      '<div class="headbtns">'+(s.cam?'<button class="mini" data-cam="'+s.id+'">\u25c9 Cam</button>':'')+'</div></div>'+
+      '<div class="cbody"><div class="cleft"><div class="cmain">'+compassDial(s.dir,54)+
+        '<div class="cright"><div class="big"><span class="val '+st+'">'+fmt(s.wind)+'</span><span class="unit">'+u+'</span>'+trendChip(s)+'</div>'+
+        '<div class="gustline">gust <b class="w-'+gs+'">'+fmt(s.gust)+'</b> '+u+(isGusty(s)?' <span class="gustflag">gusty</span>':'')+'</div>'+
+        '<div class="dirline">'+dirTxt+'</div></div></div></div>'+
+        '<div class="cchart" data-graph="'+s.id+'" title="click for full graph">'+cardChart(s)+cardDirRow(s)+'</div></div>'+
       (openPop===s.id?popHtml(s):"")+'</div>'; }
+      function inactiveBlock(dead){
+    if(!dead.length) return "";
+    var rows=dead.map(function(s){ return '<div class="inrow" data-id="'+s.id+'">'+statusDot(s)+nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+(s.cam?'<span class="camlink" data-cam="'+s.id+'">◉</span>':'')+'<span class="inupd">'+updatedStr(s)+'</span></div>'; }).join("");
+    return '<details class="inactive"><summary>Inactive wind meters <span class="ct">'+dead.length+'</span></summary>'+rows+'</details>';
+  }
   function renderCards(vis){
     var wrap=document.getElementById("cards");
     if(!vis.length){ wrap.innerHTML='<div class="sparklab" style="text-align:center;padding:30px 6px;font-size:13px">This list is empty. Open a station\u2019s \u2630 Lists and tick it in, or star it.</div>'; }
-    else{ wrap.innerHTML=vis.map(cardHtml).join(""); }
+    else{ var live=vis.filter(isLiveTier), dead=vis.filter(function(s){return !isLiveTier(s);}); wrap.innerHTML=(live.length?live.map(cardHtml).join(""):'<div class="sparklab" style="text-align:center;padding:22px 6px;font-size:13px">No live meters in this list right now.</div>')+inactiveBlock(dead); }
   }
 
   // ---- table view ----
-  var COLS=[{key:"name",label:"Station"},{key:"dir",label:"Dir"},{key:"wind",label:"Wind"},{key:"gust",label:"Gust"},{key:"temp",label:"Temp"},{key:"updated",label:"Updated"}];
-  function dirMini(dir){ var rot=(dir+180); return '<span class="dirmini"><svg width="21" height="21" viewBox="0 0 21 21"><g style="transform:rotate('+rot+'deg);transform-origin:10.5px 10.5px"><path d="M10.5 2.5 L14 13.5 L10.5 11 L7 13.5 Z" fill="var(--accent)"/></g></svg>'+compass(dir)+' '+Math.round(dir)+'\u00b0</span>'; }
-  function sortVal(s,key){ if(key==="name")return s.name.toLowerCase(); if(key==="dir")return s.dir; if(key==="wind")return s.wind; if(key==="gust")return s.gust; if(key==="temp")return s.temp; if(key==="updated")return ageMinOf(s); return 0; }
+  var COLS=[{key:"name",label:"Station"},{key:"dir",label:"Dir"},{key:"wind",label:"Wind"},{key:"gust",label:"Gust"},{key:"temp",label:"Temp"},{key:"since",label:"Since"}];
+  function dirMini(dir){ var rot=(dir+180); return '<span class="dirmini"><svg width="18" height="18" viewBox="0 0 21 21"><g style="transform:rotate('+rot+'deg);transform-origin:10.5px 10.5px"><path d="M10.5 2.5 L14 13.5 L10.5 11 L7 13.5 Z" fill="var(--accent)"/></g></svg> '+compass(dir)+'</span>'; }
+  function sortVal(s,key){ if(key==="name")return s.name.toLowerCase(); if(key==="dir")return s.dir; if(key==="wind")return s.wind; if(key==="gust")return s.gust; if(key==="temp")return s.temp; if(key==="updated"||key==="since")return ageMinOf(s); return 0; }
   function renderTable(vis){
     var u=UNIT_LABEL[state.unit];
     var custOn=state.sortKey==="custom";
-    document.getElementById("thead").innerHTML='<tr><th class="rdh'+(custOn?" sorted":"")+'" data-sort="custom" title="your order (drag rows to change)"></th>'+COLS.map(function(c){ var on=state.sortKey===c.key; var ar=on?(state.sortDir<0?'\u25bc':'\u25b2'):''; return '<th class="'+(on?"sorted":"")+'" data-sort="'+c.key+'">'+c.label+' <span class="ar">'+ar+'</span></th>'; }).join("")+'<th>'+(state.sparkRange||12)+'&#8202;h</th></tr>';
-    var rows=vis.slice();
+    var thFn=function(c){ var on=state.sortKey===c.key; var ar=on?(state.sortDir<0?'\u25bc':'\u25b2'):''; return '<th class="'+(on?"sorted":"")+'" data-sort="'+c.key+'">'+c.label+' <span class="ar">'+ar+'</span></th>'; };
+    document.getElementById("thead").innerHTML='<tr>'+COLS.slice(0,4).map(thFn).join("")+'<th>6&#8202;h</th>'+COLS.slice(4).map(thFn).join("")+'</tr>';
+    var live=vis.filter(isLiveTier), dead=vis.filter(function(s){return !isLiveTier(s);}); var rows=live.slice();
     if(!custOn){ rows.sort(function(a,b){ var av=sortVal(a,state.sortKey),bv=sortVal(b,state.sortKey); if(av<bv)return -1*state.sortDir; if(av>bv)return 1*state.sortDir; return 0; }); }
     var tb=document.getElementById("tbody");
-    if(!rows.length){ tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
-    tb.innerHTML=rows.map(function(s){ var ws=statusOf(s.wind), gs=statusOf(s.gust); var pos=state.order.indexOf(s.id)+1; var shown=!state.mapHidden[s.id];
-      return '<tr data-id="'+s.id+'"><td class="rowdrag" data-rowdrag="'+s.id+'" title="Drag to reorder">☰</td>'+
-        '<td class="name">'+nameLink(s)+'<span class="elev">('+elevStr(s.elev)+')</span>'+badge(s)+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
+    if(!vis.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--ink-faint);padding:26px">This list is empty.</td></tr>'; return; }
+    function tableRow(s){ var ws=statusOf(s.wind), gs=statusOf(s.gust);
+      return '<tr data-id="'+s.id+'">'+
+        '<td class="name">'+nameLink(s)+statusDot(s)+(s.cam?'<span class="camlink" data-cam="'+s.id+'">\u25c9</span>':'')+'</td>'+
         '<td>'+dirMini(s.dir)+'</td>'+
         '<td class="w-'+ws+'">'+fmt(s.wind)+' '+u+' '+trendChip(s)+'</td>'+
-        '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+(isGusty(s)?' <span class="gusty sm" title="gusty">GUSTY</span>':'')+'</td>'+
-        '<td>'+s.temp+'\u00b0</td>'+
-        '<td>'+updatedStr(s)+'</td>'+
-        '<td class="spark" data-graph="'+s.id+'" title="hover for full graph">'+sparkSvg(sparkSeries(s),ws,84,22)+'</td>'+
-        '</tr>'; }).join("");
+        '<td class="w-'+gs+'">'+fmt(s.gust)+' '+u+(isGusty(s)?' <span class="gusty sm">G</span>':'')+'</td>'+
+        '<td class="spark" data-graph="'+s.id+'" title="click for full graph">'+sparkSvg(sparkSeries(s,6),ws,84,22)+'</td>'+
+        '<td class="tcell">'+(s.temp==null?'\u2014':s.temp+'\u00b0')+'</td>'+
+        '<td class="scell">'+sinceStr(s)+'</td>'+
+        '</tr>'; }
+    tb.innerHTML=rows.map(tableRow).join("")+(dead.length?('<tr class="indiv"><td colspan="7">Inactive wind meters ('+dead.length+')</td></tr>'+dead.map(tableRow).join("")):"");
   }
 
   // ---- chart view ----
@@ -677,12 +882,13 @@
   function tickStepH(range){ return range<=2?0.5:range<=6?1:range<=12?2:4; }
   function renderChart(){
     var wrap=document.getElementById("chartwrap");
-    var all=visibleStations(), range=state.chartRange, since=Date.now()-range*3600000, now=Date.now(), metric=state.chartMetric, u=UNIT_LABEL[state.unit];
+    var all=visibleStations().filter(isLiveTier), range=state.chartRange, since=Date.now()-range*3600000, now=Date.now(), metric=state.chartMetric, u=UNIT_LABEL[state.unit];
     document.getElementById("chartlegend").innerHTML=all.map(function(s){ var off=state.chartHidden[s.id]?"off":""; return '<span class="lchip '+off+'" data-legend="'+s.id+'"><span class="dot" style="background:'+colorFor(s)+'"></span>'+escapeHtml(s.name)+'</span>'; }).join("");
     var rows=all.map(function(s){ var pts=s.hi.filter(function(p){return p.t>=since;}).map(function(p){ return {t:p.t, wind:disp(p.wind), gust:disp(p.gust)}; }); return {s:s, pts:pts}; });
     var maxY=computeMaxY();
     var W=1000,H=420,mL=46,mR=64,mT=14,mB=28,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
-    function X(t){ return x0+(t-since)/(now-since)*(x1-x0); }
+    var _pad=(now-since)*0.12, axisEnd=now+_pad;
+    function X(t){ return x0+(t-since)/(axisEnd-since)*(x1-x0); }
     function Y(v){ return y1-(v/maxY)*(y1-y0); }
     var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
     var i;
@@ -701,8 +907,10 @@
       svg+='<text x="'+(lx+4).toFixed(1)+'" y="'+(ly+3).toFixed(1)+'" fill="'+col+'" font-family="IBM Plex Sans" font-size="12" font-weight="600" text-anchor="start">'+escapeHtml(r.s.name)+'</text>'; });
     svg+='<text x="'+x0+'" y="'+(y0-3)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11">'+(metric==="gust"?"gusts":metric==="both"?"wind (solid) + gusts (dotted)":"wind")+' ('+u+')</text>';
     svg+='</svg><div class="chair" id="chair"></div><div class="ctip" id="ctip"></div>';
-    wrap.innerHTML=svg;
-    lastChart={since:since,now:now,x0:x0,x1:x1,W:W,rows:rows};
+    var _vd=all.filter(function(s){return !state.chartHidden[s.id];});
+    var dirStrip='<div class="chartdir"><span class="cdlbl">Direction now</span>'+_vd.map(function(s){ var c=colorFor(s); return '<span class="cdchip">'+dirArrow(s.dir,c)+'<span class="cdn" style="color:'+c+'">'+escapeHtml(s.name)+'</span> <b>'+compass(s.dir)+'</b></span>'; }).join('')+'</div>';
+    wrap.innerHTML=svg+dirStrip;
+    lastChart={since:since,now:axisEnd,x0:x0,x1:x1,W:W,rows:rows};
   }
 
   function chartMove(e){
@@ -713,13 +921,20 @@
     var t=lastChart.since+(vbX-lastChart.x0)/(lastChart.x1-lastChart.x0)*(lastChart.now-lastChart.since);
     var vis=lastChart.rows.filter(function(r){ return !state.chartHidden[r.s.id] && r.pts.length; });
     if(!vis.length){ if(chair)chair.style.display="none"; if(tip)tip.style.display="none"; return; }
-    var ref=vis[0].pts, bi=0, bd=Infinity; for(var i=0;i<ref.length;i++){ var dd=Math.abs(ref[i].t-t); if(dd<bd){bd=dd;bi=i;} }
-    var T=ref[bi].t; var snapX=(lastChart.x0+(T-lastChart.since)/(lastChart.now-lastChart.since)*(lastChart.x1-lastChart.x0))/lastChart.W*rect.width;
+    // Snap to the nearest real sample time across all visible stations.
+    var T=null, bd=Infinity; vis.forEach(function(r){ for(var i=0;i<r.pts.length;i++){ var dd=Math.abs(r.pts[i].t-t); if(dd<bd){bd=dd;T=r.pts[i].t;} } });
+    if(T==null){ if(chair)chair.style.display="none"; if(tip)tip.style.display="none"; return; }
+    // For each station take the reading nearest T, but OMIT any station whose data isn't recent
+    // enough at this time — a gap wider than its own cadence means it stopped reporting before T,
+    // so its value would be stale next to the fresher stations.
+    var shown=[]; vis.forEach(function(r){ var bp=null,bdd=Infinity; for(var i=0;i<r.pts.length;i++){ var dd=Math.abs(r.pts[i].t-T); if(dd<bdd){bdd=dd;bp=r.pts[i];} } var tol=Math.max((r.s.stepMs||600000)*1.5, 12*60000); if(bp && bdd<=tol) shown.push({r:r,p:bp}); });
+    if(!shown.length){ if(chair)chair.style.display="none"; if(tip)tip.style.display="none"; return; }
+    var snapX=(lastChart.x0+(T-lastChart.since)/(lastChart.now-lastChart.since)*(lastChart.x1-lastChart.x0))/lastChart.W*rect.width;
     if(chair){ chair.style.display="block"; chair.style.left=snapX.toFixed(1)+"px"; }
     var u=UNIT_LABEL[state.unit], d=new Date(T);
     var body='<div class="th">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</div>';
-    vis.forEach(function(r){ var p=r.pts[bi]||r.pts[r.pts.length-1]; var col=colorFor(r.s);
-      body+='<div class="cr"><span class="nm"><span class="dot" style="background:'+col+'"></span>'+escapeHtml(r.s.name)+'</span><span class="vv">'+(state.unit==="ms"?p.wind.toFixed(1):Math.round(p.wind))+' <span style="color:var(--ink-faint)">g'+(state.unit==="ms"?p.gust.toFixed(1):Math.round(p.gust))+'</span> '+u+'</span></div>'; });
+    shown.forEach(function(o){ var p=o.p, col=colorFor(o.r.s);
+      body+='<div class="cr"><span class="nm"><span class="dot" style="background:'+col+'"></span>'+escapeHtml(o.r.s.name)+'</span><span class="vv">'+(state.unit==="ms"?p.wind.toFixed(1):Math.round(p.wind))+' <span style="color:var(--ink-faint)">g'+(state.unit==="ms"?p.gust.toFixed(1):Math.round(p.gust))+'</span> '+u+'</span></div>'; });
     tip.innerHTML=body; tip.style.display="block";
     var tw=tip.offsetWidth||170; var left=snapX+14; if(left+tw>rect.width) left=snapX-tw-14; if(left<4)left=4;
     tip.style.left=left.toFixed(1)+"px"; tip.style.top="12px";
@@ -730,6 +945,7 @@
     if(state.view==="map"){ renderCards(vis); renderMarkers(vis); }
     else if(state.view==="list"){ renderTable(vis); }
     else if(state.view==="cams"){ renderCams(); }
+    else if(state.view==="sky"){ renderSky(); }
     else{ renderChart(); }
   }
 
@@ -782,7 +998,7 @@
   // Build candidate list (newest→older) for a cam from the manifest, falling back to data-path.
   function camCandsFor(id,fallback){ var fr=camFramesFor(id); if(fr.length) return fr.slice(-8).reverse().map(function(f){return f.f;}); return fallback?[fallback]:[]; }
   function hydrateCamPics(root){ (root||document).querySelectorAll(".pic[data-pic]").forEach(function(el){ loadCamPic(el, camCandsFor(el.getAttribute("data-pic"), el.getAttribute("data-path")), +el.getAttribute("data-w")||0); }); }
-  var CAMS_LATEST=[], CAM_MANIFEST=null, scrub={id:null,frames:[],i:0,playing:false,timer:null};
+  var CAMS_LATEST=[], CAM_MANIFEST=null, scrub={id:null,frames:[],i:0,playing:false,timer:null,cache:{},ready:{},ptok:0};
   // Verified cam altitudes (m) — shown after the name. Blank where not confirmed. (JB can correct.)
   var CAM_ALT={ s53_bovec:460, s53_kanin:2200, s53_stol:1600, s53_stoln:1600, s53_kuk:1100, s53_crnaprst:1770, arso_kredarica_e:2514, arso_kredarica_se:2514, dars_predel:1156, si_logmangart01:650, windy_bovec_e:460, windy_bovec_w:460, bfx_kanin_skalar:2260, bfx_kanin_sedlo:2260 };
 
@@ -801,7 +1017,13 @@
       .catch(function(){});
   }
   function camFramesFor(id){ if(!CAM_MANIFEST||!CAM_MANIFEST.cams)return []; var c=CAM_MANIFEST.cams.filter(function(x){return x.id===id;})[0]; return (c&&c.frames)?c.frames:[]; }
-  function camName(c){ return (state.camNames&&state.camNames[c.id]) || c.name; }
+  var CAM_LOOK={ arso_bovec_nw:"NW over the dropzone", arso_bovec_ne:"NE over the dropzone", s53_bovec:"over the Bovec valley", s53_kanin:"down-valley toward Bovec", s53_stol:"launch, toward the valley", s53_stoln:"north off Stol", s53_kuk:"S toward Kobarid / the Soča", s53_kobarid:"over Kobarid", s53_crnaprst:"summit launch panorama", arso_kredarica_e:"E over the Julian Alps", arso_kredarica_se:"SE toward Bohinj", dars_predel:"Predel pass, N toward Log p. Mangartom", dars_ucja:"Učja crossing, SW toward Žaga / Bovec", si_logmangart01:"Log pod Mangartom valley", windy_bovec_e:"E over Bovec", windy_bovec_w:"W over Bovec", bfx_kanin_skalar:"SW along the summit ridge", bfx_kanin_sedlo:"NW toward the saddle" };
+  var CAM_NAME_FIX={ bfx_kanin_skalar:"Kanin – SW (ARSO)", bfx_kanin_sedlo:"Kanin – NW (ARSO)" };
+  // Cams with a real-time source. snap = frequently-updated live snapshot (auto-refreshed in-app);
+  // page = their full video player (opens in a new tab, optional). Keyed by cam id.
+  var LIVE_CAMS={ si_logmangart01:{ snap:"https://cdn.whatsupcams.com/snapshot/si_logmangart01.jpg", page:"https://www.whatsupcams.com/en/webcams/Slovenia/goriska/Bovec/live-webcam-ski-resort-log-pod-mangartom-bovec-slovenia/" } };
+  var liveTimer=null;
+  function camName(c){ return (state.camNames&&state.camNames[c.id]) || CAM_NAME_FIX[c.id] || c.name; }
   function camIsActive(c){ return !!(c.latest && c.t && (Date.now()-c.t) < 90*60000); }
   function orderedCams(){
     var byId={}; CAMS_LATEST.forEach(function(c){ byId[c.id]=c; });
@@ -817,9 +1039,10 @@
       : '';
     return '<div class="camtile" data-cam="'+c.id+'">'+
       '<div class="camframe2">'+img+'<div class="hovname">'+escapeHtml(nm)+'</div>'+
+        (LIVE_CAMS[c.id]?'<button class="livebadge" data-live="'+c.id+'" title="Watch live stream"><span class="ldot"></span>LIVE ▶</button>':'')+
         '<div class="tbtns"><span class="tbtn camdrag" data-camdrag="'+c.id+'" title="Drag to reorder">⠿</span><button class="tbtn" data-hide="'+c.id+'" title="Hide cam">✕</button></div></div>'+
       tl+
-      '<div class="cap"><div class="nm" data-camname="'+c.id+'" title="Double-click to rename">'+escapeHtml(nm)+(CAM_ALT[c.id]?' <span class="camalt">'+elevStr(CAM_ALT[c.id])+'</span>':'')+'</div>'+
+      '<div class="cap"><div class="nm" data-camname="'+c.id+'" title="Double-click to rename">'+escapeHtml(nm)+(CAM_ALT[c.id]?' <span class="camalt">'+elevStr(CAM_ALT[c.id])+'</span>':'')+(CAM_LOOK[c.id]?'<div class="camlook">looking '+escapeHtml(CAM_LOOK[c.id])+'</div>':'')+'</div>'+
       (c.t?'<span class="live">'+camAge(c.t)+'</span>':'<span class="live off">offline</span>')+'</div></div>';
   }
   function paintCamGrid(){
@@ -849,19 +1072,21 @@
     el.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); el.blur(); } else if(e.key==="Escape"){ el.textContent=camName(CAMS_LATEST.filter(function(x){return x.id===id;})[0]); el.blur(); } });
   }
 
+  function openLiveCam(id){ var lc=LIVE_CAMS[id]; if(!lc)return; var u=lc.page||lc.snap; if(u) window.open(u,"_blank","noopener"); }
   function openCam(id){
     var c=CAMS_LATEST.filter(function(x){return x.id===id;})[0]; if(!c)return;
     document.getElementById("modal").className="modal cammodal";
     document.getElementById("modal").innerHTML=
-      '<div class="mhead"><h3>'+escapeHtml(c.name)+' <span style="color:var(--ink-faint);font-weight:400;font-size:13px">· '+escapeHtml(c.area)+'</span></h3><button class="close" data-close="1">✕</button></div>'+
-      '<div class="camframe big"><img id="scrubImg" alt="'+escapeHtml(c.name)+'"><div class="scrubtime" id="scrubTime">loading…</div></div>'+
+      '<div class="mhead"><h3>'+escapeHtml(camName(c))+' <span style="color:var(--ink-faint);font-weight:400;font-size:13px">· '+escapeHtml(c.area)+(CAM_LOOK[c.id]?' · looking '+escapeHtml(CAM_LOOK[c.id]):'')+'</span></h3><button class="close" data-close="1">✕</button></div>'+
+      '<div class="camframe big"><img id="scrubImg" alt="'+escapeHtml(c.name)+'"><div class="scrubtime" id="scrubTime">loading…</div><div class="scrubload" id="scrubLoad" hidden></div></div>'+
       '<div class="scrubbar">'+
         '<button class="sbtn" id="scrubPlay" title="Play timelapse">▶</button>'+
         '<input type="range" id="scrubSlider" min="0" max="0" value="0" step="1">'+
         '<button class="sbtn" id="scrubLive" title="Jump to now">live</button>'+
       '</div>';
     document.getElementById("overlay").classList.add("open");
-    scrub={id:id,frames:[],i:0,playing:false,timer:null};
+    revokeScrubCache();
+    scrub={id:id,frames:[],i:0,playing:false,timer:null,cache:{},ready:{},ptok:0};
     if(c.latest) loadCamPic(document.getElementById("scrubImg"), camCandsFor(id,c.latest), 0);
     wireScrub();
     loadScrubFrames(id);
@@ -875,6 +1100,7 @@
       var meta=document.getElementById("scrubMeta");
       if(meta) meta.textContent=frames.length?(frames.length+' frames · spans '+spanHrs(frames)+' · drag to scrub, ▶ to play'):'No history yet — frames build up over the next hour.';
       showScrub(scrub.i);
+      preloadSpan();
     };
     if(CAM_MANIFEST) use();
     fetch(LIVE_BASE+"cams/manifest.json?ts="+Date.now(),{cache:"no-store"})
@@ -883,10 +1109,46 @@
       .catch(function(){ if(!CAM_MANIFEST){ var meta=document.getElementById("scrubMeta"); if(meta)meta.textContent='History unavailable right now.'; } });
   }
   function spanHrs(frames){ if(frames.length<2)return'—'; var h=(frames[frames.length-1].t-frames[0].t)/3600000; return h>=1?h.toFixed(1)+'h':Math.round(h*60)+'m'; }
+  function setImgFast(img,url){ img._tok=(img._tok||0)+1; var old=img._blob; img._blob=null; img.style.display=""; img.src=url; if(old)try{URL.revokeObjectURL(old);}catch(_){} }
   function showScrub(i){
     var f=scrub.frames[i]; if(!f)return;
-    var img=document.getElementById("scrubImg"); if(img){ var cds=[]; for(var k=i;k>=Math.max(0,i-7);k--){ if(scrub.frames[k])cds.push(scrub.frames[k].f); } loadCamPic(img,cds,0); }
+    var img=document.getElementById("scrubImg");
+    if(img){
+      var url=null;
+      if(scrub.cache[i]) url=scrub.cache[i];
+      else if(scrub.ready[i]===false){ for(var k=i-1;k>=Math.max(0,i-24);k--){ if(scrub.cache[k]){ url=scrub.cache[k]; break; } } }
+      if(url){ setImgFast(img,url); }
+      else { var cds=[]; for(var k2=i;k2>=Math.max(0,i-7);k2--){ if(scrub.frames[k2])cds.push(scrub.frames[k2].f); } loadCamPic(img,cds,0); }
+    }
     var t=document.getElementById("scrubTime"); if(t)t.textContent=fmtClock(f.t)+(i===scrub.frames.length-1?' · newest':'');
+  }
+  function revokeScrubCache(){ try{ if(scrub&&scrub.cache){ for(var k in scrub.cache){ try{URL.revokeObjectURL(scrub.cache[k]);}catch(_){} } } if(scrub){ scrub.ptok=(scrub.ptok||0)+1; scrub.cache={}; scrub.ready={}; } }catch(_){} }
+  // Preload every frame within the chosen graph-span window so scrubbing across it is instant. Each frame
+  // is fetched + grey-checked once and cached as a blob URL; a thin bar shows progress. Frames outside the
+  // window (or not cached yet) fall back to on-demand network load in showScrub, so nothing breaks mid-load.
+  function preloadSpan(){
+    var frames=scrub.frames||[]; var bar=document.getElementById("scrubLoad");
+    if(frames.length<2){ if(bar)bar.hidden=true; return; }
+    var spanH=state.sparkRange||12, cutoff=Date.now()-spanH*3600000;
+    var idxs=[]; for(var a=0;a<frames.length;a++){ if(frames[a].t>=cutoff) idxs.push(a); }
+    if(idxs.length<2){ idxs=[]; for(var b=Math.max(0,frames.length-12);b<frames.length;b++) idxs.push(b); }
+    idxs.reverse();
+    var tok=scrub.ptok, total=idxs.length, done=0, POOL=5, qi=0;
+    if(bar){ bar.hidden=false; bar.style.width="0%"; }
+    function prog(){ if(scrub.ptok!==tok)return; if(bar){ bar.style.width=Math.round(done/total*100)+"%"; if(done>=total)setTimeout(function(){ if(scrub.ptok===tok&&bar)bar.hidden=true; },450); } }
+    function one(idx,cb){
+      if(scrub.cache[idx]||scrub.ready[idx]===false) return cb();
+      fetch(camWsrv(frames[idx].f,0,0),{cache:"default"})
+        .then(function(r){ if(!r.ok)throw 0; return r.arrayBuffer(); })
+        .then(function(ab){ if(scrub.ptok!==tok)return cb();
+          if(!jpegOk(new Uint8Array(ab))){ scrub.ready[idx]=false; return cb(); }
+          greyBad(ab).then(function(bad){ if(scrub.ptok!==tok)return cb();
+            if(bad){ scrub.ready[idx]=false; } else { scrub.cache[idx]=URL.createObjectURL(new Blob([ab],{type:"image/jpeg"})); scrub.ready[idx]=true; }
+            cb(); }); })
+        .catch(function(){ if(scrub.ptok!==tok)return cb(); scrub.ready[idx]=false; cb(); });
+    }
+    function worker(){ if(scrub.ptok!==tok)return; if(qi>=idxs.length)return; var idx=idxs[qi++]; one(idx,function(){ done++; prog(); worker(); }); }
+    for(var w2=0;w2<Math.min(POOL,idxs.length);w2++) worker();
   }
   function fmtClock(epoch){ var d=new Date(epoch); return d.toLocaleString([], {weekday:'short',hour:'2-digit',minute:'2-digit'}); }
   function wireScrub(){
@@ -952,7 +1214,7 @@
     });
   }
   function renderMarkers(vis){
-    if(!map)return; vis=vis.filter(function(s){ return !state.mapHidden[s.id]; });
+    if(!map)return; vis=vis.filter(function(s){ return !state.mapHidden[s.id] && isLiveTier(s); });
     if(!map._dodgeBound){ map.on("zoomend",dodgeMarkers); map._dodgeBound=true; }
     var visIds=vis.map(function(s){return s.id;});
     Object.keys(markers).forEach(function(id){ if(visIds.indexOf(id)<0){ map.removeLayer(markers[id]); delete markers[id]; } });
@@ -976,7 +1238,7 @@
   function openCams(single){ var cams=single?[byId(single)]:STATIONS.filter(function(s){return s.cam;});
     document.getElementById("modal").innerHTML='<div class="mhead"><h3>'+(single?escapeHtml(cams[0].name)+" webcam":"So\u010da valley webcams")+'</h3><button class="close" data-close="1">\u2715</button></div><div class="camgrid">'+cams.map(camCard).join("")+'</div><div class="sparklab" style="margin-top:12px;font-size:11.5px">Preview placeholders. The real app shows live cam images/streams here.</div>';
     document.getElementById("overlay").classList.add("open"); }
-  function closeCams(){ if(typeof stopScrub==="function")stopScrub(); document.getElementById("overlay").classList.remove("open"); document.getElementById("modal").className="modal"; }
+  function closeCams(){ if(typeof stopScrub==="function")stopScrub(); if(typeof revokeScrubCache==="function")revokeScrubCache(); if(liveTimer){clearInterval(liveTimer);liveTimer=null;} document.getElementById("overlay").classList.remove("open"); var md=document.getElementById("modal"); md.className="modal"; md.innerHTML=""; }
 
   var BASEMAPS={
     light:{url:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",opts:{maxZoom:19,subdomains:"abc",attribution:"\u00a9 OpenStreetMap contributors"}},
@@ -988,12 +1250,55 @@
   function setBasemap(key,save){ if(!map)return; var b=BASEMAPS[key]||BASEMAPS.light; if(tileLayer)map.removeLayer(tileLayer); tileLayer=L.tileLayer(b.url,b.opts).addTo(map); state.basemap=key; var sel=document.getElementById("basemapSel"); if(sel)sel.value=key; if(save)persist(); if(state.view==="map")renderMarkers(visibleStations()); }
 
   function setSeg(id,attr,val){ document.querySelectorAll("#"+id+" button").forEach(function(b){ b.classList.toggle("on",b.getAttribute(attr)===String(val)); }); }
+  var SLO_COMPASS=["S","SSV","SV","VSV","V","VJV","JV","JJV","J","JJZ","JZ","ZJZ","Z","ZSZ","SZ","SSZ"];
+  function sloCompass(d){ if(d==null||isNaN(d))return "\u2014"; return SLO_COMPASS[Math.round(((d%360)/22.5))%16]; }
+  function skyStanje(s){ if(!s.obsTs)return "\u2014"; var d=new Date(s.obsTs); return pad2(d.getHours())+":"+pad2(d.getMinutes())+" "+pad2(d.getDate())+"."+pad2(d.getMonth()+1)+"."+d.getFullYear(); }
+  function agoStr(s){ var a=ageMinOf(s); if(a==null)return "\u2014"; if(a<1)return "just now"; if(a<60)return a+" min ago"; var h=Math.round(a/60); if(h<24)return h+" h ago"; return Math.round(h/24)+" d ago"; }
+  function dirLaneAligned(s, api){
+    var box=document.getElementById("dirLaneBox"); if(!box)return;
+    var spanH=state.sparkRange||2, cutoff=Date.now()-spanH*3600000;
+    var all=(s.hi||[]).filter(function(p){return p.t>=cutoff;}); if(all.length<2) all=(s.hi||[]).slice();
+    var pts=all.filter(function(p){return p.dir!=null && !isNaN(p.dir);});
+    if(!pts.length){ box.innerHTML='<span class="dllbl">Direction</span> <span class="dlno">no direction history yet</span>'; return; }
+    var W=api.W, x0=api.x0, x1=api.x1, since=api.since, sp=api.sp, H=40, yc=17;
+    function X(t){ return x0+(t-since)/sp*(x1-x0); }
+    var svg='<svg class="dlsvg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="display:block">';
+    timeTicks(since, all[all.length-1].t).forEach(function(t){ var x=X(t); svg+='<line x1="'+x.toFixed(1)+'" y1="2" x2="'+x.toFixed(1)+'" y2="'+(H-2)+'" stroke="var(--line)" stroke-width="1" opacity=".2"/>'; });
+    var lastX=-999;
+    pts.forEach(function(p){ var x=X(p.t); if(x-lastX<24)return; lastX=x; svg+='<g transform="translate('+x.toFixed(1)+','+yc+') rotate('+((p.dir+180)|0)+')"><path d="M0 -8 L0 8 M0 -8 L-3.2 -3 M0 -8 L3.2 -3" stroke="var(--accent)" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g><text x="'+x.toFixed(1)+'" y="'+(H-3)+'" fill="var(--ink-faint)" font-family="IBM Plex Mono" font-size="8" text-anchor="middle">'+compass(p.dir)+'</text>'; });
+    svg+='</svg>';
+    box.innerHTML='<div class="dllbl">Direction \u2014 aligned to time</div>'+svg;
+  }
+  function dirLaneInner(s){
+    var spanH=state.sparkRange||2, cut=Date.now()-spanH*3600000;
+    var pts=(s.hi||[]).filter(function(p){return p.t>=cut && p.dir!=null && !isNaN(p.dir);});
+    if(pts.length<2) pts=(s.hi||[]).filter(function(p){return p.dir!=null && !isNaN(p.dir);});
+    if(pts.length<1) return '<span class="dllbl">Direction</span> <span class="dlno">no direction history yet</span>';
+    var N=Math.min(18,pts.length), items=[];
+    for(var i=0;i<N;i++){ var idx=Math.round(i*(pts.length-1)/((N-1)||1)), p=pts[idx], d=new Date(p.t); items.push('<span class="dli">'+dirArrow(p.dir,"var(--accent)")+'<span class="dlt">'+compass(p.dir)+'</span><span class="dlh">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</span></span>'); }
+    return '<span class="dllbl">Direction \u2014 last '+spanH+' h</span><div class="dlrow">'+items.join("")+'</div>';
+  }
+  function renderSky(){
+    var wrap=document.getElementById("skyview"); if(!wrap)return;
+    var u=UNIT_LABEL[state.unit], all=visibleStations();
+    var live=all.filter(isLiveTier), dead=all.filter(function(s){return !isLiveTier(s);});
+    function row(s){ var ws=statusOf(s.wind), gs=statusOf(s.gust);
+      return '<tr><td class="skn"><span class="sklink" data-graph="'+s.id+'" title="Show history">'+escapeHtml(s.name)+'</span></td>'+
+        '<td class="skw sk-'+ws+'">'+fmt(s.wind)+' '+u+'</td>'+
+        '<td class="skg sk-'+gs+'">'+fmt(s.gust)+' '+u+'</td>'+
+        '<td>'+((s.dir==null||isNaN(s.dir))?"\u2014":compass(s.dir))+'</td>'+
+        '<td>'+(s.temp==null?"\u2014":s.temp+"\u00b0C")+'</td>'+
+        '<td class="skt">'+statusDot(s)+' '+agoStr(s)+'</td></tr>'; }
+    function tbl(title,arr){ if(!arr.length)return ""; return '<h3 class="skygrp">'+title+'</h3><table class="skytbl"><thead><tr><th>Station</th><th>Wind</th><th>Gust</th><th>Direction</th><th>Temp</th><th>Updated</th></tr></thead><tbody>'+arr.map(row).join("")+'</tbody></table>'; }
+    wrap.innerHTML='<div class="skywrap">'+tbl("Live",live)+tbl("Inactive",dead)+(all.length?"":'<div class="skygrp">No stations.</div>')+'</div>';
+  }
   function setView(v){ state.view=v; setSeg("viewSeg","data-v",v); setSeg("botnav","data-v",v); applyView(); render(); }
   function applyView(){
     document.getElementById("mapview").style.display=state.view==="map"?"":"none";
     document.getElementById("listview").style.display=state.view==="list"?"":"none";
     document.getElementById("chartview").style.display=state.view==="chart"?"":"none";
     document.getElementById("camsview").style.display=state.view==="cams"?"":"none";
+    document.getElementById("skyview").style.display=state.view==="sky"?"":"none";
     if(state.view==="map"&&map){ setTimeout(function(){ map.invalidateSize(); },60); }
   }
   function toggleMember(listId,sid){ if(!sid)return; var l=listById(listId); if(!l)return; var i=l.members.indexOf(sid); if(i>=0)l.members.splice(i,1); else l.members.push(sid); persist(); renderLists(); render(); }
@@ -1029,14 +1334,22 @@
         '<div class="setrow"><label>Graph span</label><div class="seg" id="setSpark"><button data-sr="2">2h</button><button data-sr="6">6h</button><button data-sr="12">12h</button><button data-sr="24">24h</button></div></div>'+
         '<div class="setrow"><label>Skin</label><select id="setSkin"><option value="dark">Dark</option><option value="light">Light</option><option value="daylight">Daylight (bright sun)</option><option value="midnight">Midnight (OLED)</option></select></div>'+
         '<div class="setrow"><label>Default map</label><select id="setBasemap"><option value="dark">Dark</option><option value="light">Streets</option><option value="terrain">Terrain</option><option value="satellite">Satellite</option></select></div>'+
-        '<div class="setrow"><label>Sync to another device</label><button class="act" id="setSyncBtn">Copy sync link</button></div>'+
-        '<div class="setrow" id="setSyncRow" hidden><input class="num" id="setSyncLink" readonly style="flex:1;min-width:0;font-family:\'IBM Plex Mono\',monospace;font-size:11px"><span class="setval" id="setSyncMsg"></span></div>'+
-        '<div class="setnote">Barbs show speed (½=5, |=10, ▲=50 kt); arrows show direction with length scaled to speed. Settings save on this device. The sync link carries your lists + settings to another device — copy it, open it there once, and they import (it\'s a manual copy; re-copy after changing lists).</div>'+
+        '<div class="setrow col"><label>Upper / Lower groups</label><div id="setGroups"></div></div>'+
+        '<div class="setnote">Barbs show speed (½=5, |=10, ▲=50 kt); arrows show direction with length scaled to speed. Settings save on this device. Assign each station to Upper or Lower above to control those tabs.</div>'+
       '</div>';
     document.getElementById("setBasemap").value=state.basemap;
     document.getElementById("setSkin").value=state.skin||"dark";
     document.getElementById("setSkin").addEventListener("change",function(e){ applySkin(e.target.value); persist(); });
     document.getElementById("overlay").classList.add("open");
+    (function(){ var box=document.getElementById("setGroups"); if(!box)return;
+      function has(a,id){ return (a||[]).indexOf(id)>=0; }
+      function toggle(grp,id){ var arr=state[grp], i=arr.indexOf(id); if(i>=0){ arr.splice(i,1); } else { arr.push(id); var o=(grp==="upper"?"lower":"upper"), j=state[o].indexOf(id); if(j>=0)state[o].splice(j,1); } state.groupsInit=true; persist(); if(typeof renderLists==="function")renderLists(); if(typeof render==="function")render(); draw(); }
+      function draw(){ box.innerHTML=orderedAll().map(function(s){ return '<div class="grow"><span class="gnm">'+escapeHtml(s.name)+' <span class="gel">'+elevStr(s.elev)+'</span></span><span class="gbtns"><button class="gb '+(has(state.upper,s.id)?"on":"")+'" data-up="'+s.id+'">Upper</button><button class="gb '+(has(state.lower,s.id)?"on":"")+'" data-lo="'+s.id+'">Lower</button></span></div>'; }).join("");
+        box.querySelectorAll("[data-up]").forEach(function(b){ b.addEventListener("click",function(){ toggle("upper",b.getAttribute("data-up")); }); });
+        box.querySelectorAll("[data-lo]").forEach(function(b){ b.addEventListener("click",function(){ toggle("lower",b.getAttribute("data-lo")); }); });
+      }
+      draw();
+    })();
     var remap=function(){ if(state.view==="map")renderMarkers(visibleStations()); };
     document.getElementById("indSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.indicator=b.getAttribute("data-ind"); setSeg("indSeg","data-ind",state.indicator); persist(); remap(); });
     var sb=document.getElementById("setBarb"); sb.addEventListener("input",function(){ state.barbScale=+sb.value; document.getElementById("setBarbV").textContent=(+sb.value).toFixed(1)+"×"; persist(); remap(); });
@@ -1049,7 +1362,6 @@
     function setThreshLabels(){ var uu=UNIT_LABEL[state.unit], cl=document.getElementById("setCautionLbl"), dl=document.getElementById("setDangerLbl"), sc=document.getElementById("setCaution"), sd=document.getElementById("setDanger"); if(cl)cl.textContent="Caution ≥ ("+uu+")"; if(dl)dl.textContent="Danger ≥ ("+uu+")"; if(sc)sc.value=threshFmt(state.caution); if(sd)sd.value=threshFmt(state.danger); }
     document.getElementById("setUnit").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.unit=b.getAttribute("data-u"); setSeg("setUnit","data-u",state.unit); persist(); refreshThreshUI(); setThreshLabels(); render(); });
     document.getElementById("setSpark").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; state.sparkRange=+b.getAttribute("data-sr"); setSeg("setSpark","data-sr",state.sparkRange); persist(); if(state.view==="map"||state.view==="list")render(); });
-    document.getElementById("setSyncBtn").addEventListener("click",function(){ var link=makeSyncLink(), row=document.getElementById("setSyncRow"), inp=document.getElementById("setSyncLink"), msg=document.getElementById("setSyncMsg"); if(!link){ if(msg)msg.textContent="couldn't build link"; return; } row.hidden=false; inp.value=link; try{inp.focus();inp.select();}catch(_){} if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(function(){ msg.textContent="copied ✓"; },function(){ msg.textContent="select & copy"; }); } else { msg.textContent="select & copy"; } });
   }
   function wire(){
     document.getElementById("viewSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; setView(b.getAttribute("data-v")); });
@@ -1078,6 +1390,7 @@
       if(e.target.closest("[data-camdrag]")) return;  // drag handle: reorder only, don't open
       if(e.target.closest("[data-camname]")) return; // name: dblclick renames, single click does nothing
       if(e.target.closest(".tlrow")) return;          // timeline: scrub, don't open
+      var lv=e.target.closest("[data-live]"); if(lv){ e.stopPropagation(); openLiveCam(lv.getAttribute("data-live")); return; }
       var t=e.target.closest("[data-cam]"); if(t)openCam(t.getAttribute("data-cam"));
     });
     cg.addEventListener("input",function(e){
@@ -1190,12 +1503,13 @@
     arr=arr.filter(function(s){ return !DROP_IDS[s.id]; });
     arr.forEach(function(s){ if(NAME_FIX[s.name])s.name=NAME_FIX[s.name]; s.name=s.name.replace(/\s*\(ARSO\)\s*$/,""); if(!s.series||!s.series.length){ s.series=(s.rw&&s.rw.length)?s.rw.slice(-12):[s.wind||0,s.wind||0]; } genHi(s); });
     STATIONS=arr;
+    if(!state.groupsInit){ state.upper=STATIONS.filter(function(s){return s.elev>=800;}).map(function(s){return s.id;}); state.lower=STATIONS.filter(function(s){return s.elev<800;}).map(function(s){return s.id;}); state.groupsInit=true; try{persist();}catch(e){} }
     var ids=STATIONS.map(function(s){return s.id;});
     var kept=state.order.filter(function(id){return ids.indexOf(id)>=0;});
     ids.forEach(function(id){ if(kept.indexOf(id)<0)kept.push(id); });
     state.order=kept; dataLoadedOnce=true;
   }
-  function handleData(j){ var arr=Array.isArray(j)?j:(j.stations||[]); DATA_META.generated=(j&&j.generated)?j.generated:new Date().toISOString(); ingest(arr); render(); decideFallback(); }
+  function handleData(j){ var arr=Array.isArray(j)?j:(j.stations||[]); DATA_META.generated=(j&&j.generated)?j.generated:new Date().toISOString(); ingest(arr); if(typeof renderLists==="function" && !editingList) renderLists(); render(); decideFallback(); }
   function loadData(){
     // Live wind comes from the camstore branch (refreshed by the loop, served via raw). Falls
     // back to a same-origin data.json if raw is unreachable.
@@ -1212,7 +1526,7 @@
     Promise.all([loadStore("pmw_lists"),loadStore("pmw_settings")]).then(function(v){
       if(v[0]&&v[0].length){ state.lists=v[0].filter(function(l){return l.id!=="fav";}); }
       if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir;
-        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; if(typeof q.showGusts==="boolean")state.showGusts=q.showGusts; if(q.elevUnit)state.elevUnit=q.elevUnit; }
+        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; if(typeof q.showGusts==="boolean")state.showGusts=q.showGusts; if(q.elevUnit)state.elevUnit=q.elevUnit; if(q.upper)state.upper=q.upper; if(q.lower)state.lower=q.lower; if(q.groupsInit)state.groupsInit=true; }
       applySyncHash();   // a #sync=… link (opened on this device) overrides local settings + imports lists
       applySkin(state.skin);
       setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("botnav","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
