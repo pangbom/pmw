@@ -274,7 +274,7 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
         const targets = stations.filter(st => /^(sky_|arso_)/.test(st.id) && st.lat!=null && st.lon!=null);
         let ok = 0;
         for (const st of targets) {
-          const url = 'https://my.meteoblue.com/packages/basic-1h_wind-1h?lat='+st.lat+'&lon='+st.lon+(st.elev!=null?'&asl='+st.elev:'')+
+          const url = 'https://my.meteoblue.com/packages/basic-1h?lat='+st.lat+'&lon='+st.lon+(st.elev!=null?'&asl='+st.elev:'')+
             '&apikey='+MB_KEY+'&format=json&windspeed=kmh&winddirection=degree&timeformat=timestamp_utc&forecast_days=4';
           try {
             const r = await fetch(url); const j = await r.json();
