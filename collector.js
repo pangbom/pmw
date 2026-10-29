@@ -47,7 +47,9 @@ async function collectSkytech(page) {
   await page.goto('https://skytech.si/', { waitUntil: 'domcontentloaded', timeout: 60000 });
   return await page.evaluate(async (META) => {
     const DIRMAP = { S:0, SSV:22.5, SV:45, VSV:67.5, V:90, VJV:112.5, JV:135, JJV:157.5, J:180, JJZ:202.5, JZ:225, ZJZ:247.5, Z:270, ZSZ:292.5, SZ:315, SSZ:337.5 };
-    const parseTs = s => { const m = s.match(/(\d{2}):(\d{2})\s+(\d{2})\.(\d{2})\.(\d{4})/); if(!m) return null; return Date.UTC(+m[5],+m[4]-1,+m[3],+m[1]-2,+m[2]); };
+    // Slovenian local time -> UTC, honoring CET/CEST (was hard-coded +2, broke after DST end).
+    const ljUtc = (y,mo,d,h,mi,se) => { const lastSun = m => { const e=new Date(Date.UTC(y,m+1,0)); return Date.UTC(y,m,e.getUTCDate()-e.getUTCDay(),1); }; const base=Date.UTC(y,mo-1,d,h,mi,se||0); const u=base-7200000; return (u>=lastSun(2) && u<lastSun(9)) ? u : base-3600000; };
+    const parseTs = s => { const m = s.match(/(\d{2}):(\d{2})\s+(\d{2})\.(\d{2})\.(\d{4})/); if(!m) return null; return ljUtc(+m[5],+m[4],+m[3],+m[1],+m[2]); };
     const post = body => fetch('https://skytech.si/skytechsys/data.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','X-Requested-With':'XMLHttpRequest'}, body }).then(r=>r.text());
     const html = await post('c=tabela&l=x');
     const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -171,7 +173,7 @@ async function collectWeeWX(cfg){
     const dir = SL_DIR[dirStr] != null ? SL_DIR[dirStr] : 0;
     const tm = html.match(/(\d{2})\.\s*(\d{2})\.\s*(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
     let obsTs = null;
-    if(tm){ const off = (+tm[2]>=4 && +tm[2]<=10)?2:1; obsTs = Date.UTC(+tm[3],+tm[2]-1,+tm[1],+tm[4]-off,+tm[5],+tm[6]); }
+    if(tm){ const ljUtc = (y,mo,d,h,mi,se) => { const lastSun = m => { const e=new Date(Date.UTC(y,m+1,0)); return Date.UTC(y,m,e.getUTCDate()-e.getUTCDay(),1); }; const base=Date.UTC(y,mo-1,d,h,mi,se||0); const u=base-7200000; return (u>=lastSun(2) && u<lastSun(9)) ? u : base-3600000; }; obsTs = ljUtc(+tm[3],+tm[2],+tm[1],+tm[4],+tm[5],+tm[6]); }
     const tmp = html.match(/🌡[^0-9]{0,6}([\d.,]+)\s*°C/);
     const temp = tmp ? num(tmp[1]) : null;
     return { id:cfg.id, name:cfg.name, src:'WeeWX', web:cfg.url, lat:cfg.lat, lon:cfg.lon, elev:cfg.elev,
