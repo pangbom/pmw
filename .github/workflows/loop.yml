@@ -36,6 +36,7 @@ jobs:
       - name: Refresh loop (wind + cams every ~3 min)
         env:
           WU_KEY: ${{ secrets.WU_KEY }}
+          MB_KEY: ${{ secrets.MB_KEY }}
           PMW_PAT: ${{ secrets.PMW_PAT }}
         run: |
           git config user.name "pmw-bot"
