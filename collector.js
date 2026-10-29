@@ -256,4 +256,43 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
     fs.writeFileSync(HIST_FILE, JSON.stringify(hist));
     console.log('Wrote history.json for', Object.keys(hist.stations).length, 'stations');
   } catch(e) { console.error('history write failed:', e.message); }
+
+  // ---- meteoblue forecast archive (mbfc.json next to data.json) ----
+  // meteoblue's API serves only the CURRENT forecast, so to compare "what was forecast 1/2/3 days
+  // ahead" we save one run per UTC day per station and keep 10 days. Runs only if MB_KEY (GitHub
+  // secret) is set, at most once per ~20 h, for the launch/high stations (skytech + ARSO) to save
+  // credits. Shape: { runs: { stationId: { 'YYYY-MM-DD': {issued, t:[epochSec], w:[], d:[], g:[]} } } }
+  try {
+    const MB_KEY = process.env.MB_KEY || '';
+    if (MB_KEY) {
+      const path = require('path');
+      const MB_FILE = process.env.MB_FILE || path.join(path.dirname(DATA_FILE), 'mbfc.json');
+      let mb = { runs:{}, last:0 };
+      try { mb = JSON.parse(fs.readFileSync(MB_FILE,'utf8')); if(!mb.runs) mb.runs={}; } catch(e) {}
+      if (Date.now() - (mb.last||0) > 20*3600000) {
+        const day = new Date().toISOString().slice(0,10);
+        const targets = stations.filter(st => /^(sky_|arso_)/.test(st.id) && st.lat!=null && st.lon!=null);
+        let ok = 0;
+        for (const st of targets) {
+          const url = 'https://my.meteoblue.com/packages/basic-1h_wind-1h?lat='+st.lat+'&lon='+st.lon+(st.elev!=null?'&asl='+st.elev:'')+
+            '&apikey='+MB_KEY+'&format=json&windspeed=kmh&winddirection=degree&timeformat=timestamp_utc&forecast_days=4';
+          try {
+            const r = await fetch(url); const j = await r.json();
+            const d = j.data_1h;
+            if (!r.ok || !d || !d.time) { console.error('meteoblue', st.id, 'bad response', r.status, JSON.stringify(j).slice(0,200)); continue; }
+            const t = d.time.map(x => typeof x === 'number' ? x : Math.round(Date.parse(String(x).replace(' ','T')+'Z')/1000));
+            const pick = names => { for (const n of names) if (Array.isArray(d[n])) return d[n]; return []; };
+            (mb.runs[st.id] = mb.runs[st.id] || {})[day] = { issued: Math.round(Date.now()/1000), t,
+              w: pick(['windspeed','windspeed_10m']), d: pick(['winddirection','winddirection_10m']), g: pick(['gust','windgusts','gust_10m']) };
+            ok++;
+          } catch(e) { console.error('meteoblue', st.id, 'failed:', e.message); }
+        }
+        if (ok) mb.last = Date.now();
+        const cutoff = new Date(Date.now()-10*86400000).toISOString().slice(0,10);
+        Object.values(mb.runs).forEach(r => Object.keys(r).forEach(k => { if (k < cutoff) delete r[k]; }));
+        fs.writeFileSync(MB_FILE, JSON.stringify(mb));
+        console.log('meteoblue: saved', ok, 'of', targets.length, 'station forecasts for', day);
+      }
+    }
+  } catch(e) { console.error('meteoblue archive failed:', e.message); }
 })();

@@ -591,6 +591,7 @@
   <div class="verifyview" id="verifyview" style="display:none">
     <div class="chartbar vbar">
       <div class="ctl"><label>Station</label><select id="vStation" class="vsel"></select></div>
+      <div class="ctl"><label>Model</label><div class="seg" id="vModelSeg"><button data-o="ecmwf">ECMWF</button><button data-o="mb">meteoblue</button><button data-o="both">Both</button></div></div>
       <div class="ctl"><label>Forecast</label><div class="seg" id="vLeadSeg"><button data-l="all">All</button><button data-l="1">1 day</button><button data-l="2">2 days</button><button data-l="3">3 days</button></div></div>
       <div class="ctl"><label>Window</label><div class="seg" id="vRangeSeg"><button data-r="24">24 h</button><button data-r="72">3 d</button><button data-r="168">7 d</button></div></div>
       <div class="ctl"><label>Show</label><div class="seg" id="vMetricSeg"><button data-m="wind">Speed</button><button data-m="dir">Direction</button></div></div>
@@ -628,7 +629,7 @@
   var GUSTCOL="#f5b942";   // amber gust barbs shown on marker hover
 
   var state={ unit:"ms", caution:13.6, danger:21.4, active:"all", view:"map", sortKey:"custom", sortDir:1,
-    vStation:null, vLead:"all", vRange:72, vLayout:"overlay", vMetric:"wind",
+    vStation:null, vModel:"ecmwf", vLead:"all", vRange:72, vLayout:"overlay", vMetric:"wind",
     chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark", skin:"dark", showGusts:false, elevUnit:"m",
     barbScale:1, indicator:"barb", calmScale:1, sparkRange:2,
     camNames:{}, camOrder:[], camHidden:{},
@@ -662,7 +663,7 @@
     if(typeof window!=="undefined" && window.storage){ try{ window.storage.set(key,JSON.stringify(val),false).catch(function(){}); }catch(e){} return; }
     try{ window.localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
   }
-  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden,showGusts:state.showGusts,elevUnit:state.elevUnit,upper:state.upper,lower:state.lower,groupsInit:state.groupsInit,vStation:state.vStation,vLead:state.vLead,vRange:state.vRange,vLayout:state.vLayout,vMetric:state.vMetric}); }
+  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden,showGusts:state.showGusts,elevUnit:state.elevUnit,upper:state.upper,lower:state.lower,groupsInit:state.groupsInit,vStation:state.vStation,vLead:state.vLead,vRange:state.vRange,vLayout:state.vLayout,vMetric:state.vMetric,vModel:state.vModel}); }
   function elevStr(m){ if(m==null||m==="")return ""; return state.elevUnit==="ft"?(Math.round(m*3.28084)+"ft"):(m+"m"); }
   // Cross-device sync: pack lists + settings into a link (#sync=…). Opening that link on another
   // device imports them. Manual carry (no server) — this is the local-storage-per-device workaround.
@@ -1013,9 +1014,23 @@
     for(var t=h0;t<=end;t+=H){ var w=s.hi.filter(function(p){return p.t>=t-H/2 && p.t<t+H/2;}); if(!w.length)continue;
       var mw=0,mg=0; w.forEach(function(p){mw+=p.wind;mg+=p.gust;}); out.push({t:t, wind:mw/w.length, gust:mg/w.length, dir:circMean(w.map(function(p){return p.dir;}))}); }
     return out; }
-  function fcSeries(id,k,since,end){ var f=FC[id]; if(!f)return []; var out=[];
+  // Forecast series for one model + lead. ECMWF: Open-Meteo previous runs. meteoblue: our own daily
+  // archive (mbfc.json) — lead k = the run saved k UTC days before the hour's UTC date.
+  var MB=null;
+  function loadMb(){ return fetch(LIVE_BASE+'mbfc.json?ts='+Date.now(),{cache:'no-store'}).then(function(r){ if(!r.ok)throw 0; return r.json(); }).then(function(j){ MB=j; }).catch(function(){}); }
+  function mbHas(id){ return !!(MB&&MB.runs&&MB.runs[id]&&Object.keys(MB.runs[id]).length); }
+  function mbAny(){ return !!(MB&&MB.runs&&Object.keys(MB.runs).some(mbHas)); }
+  function fcSeries(id,k,since,end,model){ var out=[];
+    if(model==="mb"){ if(!mbHas(id))return out; var runs=MB.runs[id];
+      Object.keys(runs).forEach(function(day){ var r=runs[day], d0=Date.parse(day+"T00:00:00Z"); if(!r||!r.t)return;
+        for(var i=0;i<r.t.length;i++){ var t=r.t[i]*1000; if(t<since||t>end)continue; var lead=Math.floor((t-d0)/86400000); if(lead!==k)continue; var w=r.w[i]; if(w==null)continue;
+          out.push({t:t, wind:w, gust:r.g&&r.g[i]!=null?r.g[i]:null, dir:r.d&&r.d[i]!=null?r.d[i]:null}); } });
+      out.sort(function(a,b){return a.t-b.t;}); return out; }
+    var f=FC[id]; if(!f)return out;
     for(var i=0;i<f.t.length;i++){ var t=f.t[i]; if(t<since||t>end)continue; var w=f["w"+k][i]; if(w==null)continue; out.push({t:t, wind:w, gust:f["g"+k][i], dir:f["d"+k][i]}); }
     return out; }
+  var MODELS=[{id:"ecmwf",name:"ECMWF",full:"ECMWF IFS",dash:"5 3"},{id:"mb",name:"meteoblue",full:"meteoblue",dash:"1.5 3.5"}];
+  function vModels(){ return state.vModel==="both"?MODELS:MODELS.filter(function(m){return m.id===state.vModel;}); }
   // Score one lead against observations: mean abs error, bias (+ = forecast too strong), direction error.
   function scoreLead(obs,fc){ var m={}; fc.forEach(function(p){ m[p.t]=p; }); var n=0,ae=0,b=0,dn=0,de=0;
     obs.forEach(function(o){ var f=m[o.t]; if(!f)return; n++; ae+=Math.abs(f.wind-o.wind); b+=f.wind-o.wind;
@@ -1040,57 +1055,62 @@
       // break the line across gaps > 2h so missing data isn't drawn as a straight bridge
       var seg=[], segs=[seg]; pts.forEach(function(p,j){ if(j&&p.t-pts[j-1].t>2*3600000){ seg=[]; segs.push(seg);} seg.push(p); });
       segs.forEach(function(sg){ if(sg.length<2){ if(sg.length===1) svg+='<circle cx="'+X(sg[0].t).toFixed(1)+'" cy="'+Y(sg[0].wind).toFixed(1)+'" r="2" fill="'+L.col+'"/>'; return; }
-        svg+='<polyline points="'+sg.map(function(p){return X(p.t).toFixed(1)+","+Y(p.wind).toFixed(1);}).join(" ")+'" fill="none" stroke="'+L.col+'" stroke-width="'+(L.obs?2.6:1.7)+'" stroke-linejoin="round"'+(L.obs?'':' stroke-dasharray="5 3"')+'/>'; }); });
+        svg+='<polyline points="'+sg.map(function(p){return X(p.t).toFixed(1)+","+Y(p.wind).toFixed(1);}).join(" ")+'" fill="none" stroke="'+L.col+'" stroke-width="'+(L.obs?2.6:1.7)+'" stroke-linejoin="round"'+(L.obs?'':' stroke-dasharray="'+(L.dash||"5 3")+'"')+'/>'; }); });
     svg+='<text x="'+x0+'" y="14" fill="var(--ink-dim)" font-family="IBM Plex Sans" font-size="12" font-weight="600">'+escapeHtml(title)+'</text></svg>';
     return svg; }
   function vLegend(){ var h='<span class="vleg"><span class="vsw obs"></span>Observed (hourly mean)</span>';
-    vLeads().forEach(function(l){ h+='<span class="vleg"><span class="vsw" style="border-color:'+l.col+'"></span>ECMWF '+l.lbl+'</span>'; });
-    FC_MODELS.forEach(function(m){ if(!m.on) h+='<span class="vleg off" title="'+escapeHtml(m.note||"")+'">'+escapeHtml(m.name)+' &middot; '+escapeHtml(m.note||"off")+'</span>'; });
+    vModels().forEach(function(m){ vLeads().forEach(function(l){ h+='<span class="vleg"><span class="vsw" style="border-color:'+l.col+';border-top-style:'+(m.id==="mb"?"dotted":"dashed")+'"></span>'+m.name+' '+l.lbl+'</span>'; }); });
+    if(!mbAny()) h+='<span class="vleg off">meteoblue &middot; no saved forecasts yet (first run saves one per day once the API key is set)</span>';
     return h; }
   function fmtBias(kmh){ if(kmh==null)return "–"; var v=disp(kmh); return (v>0?"+":"")+(state.unit==="ms"?v.toFixed(1):Math.round(v)); }
   function renderVerify(){
     var wrap=document.getElementById("verifywrap"); if(!wrap)return;
     var st=fcStations(); if(!st.length){ wrap.innerHTML='<div class="vnote">Waiting for station data…</div>'; return; }
     if(!state.vStation||!byId(state.vStation)) state.vStation=(st.filter(isLiveTier)[0]||st[0]).id;
+    if(!state.vModel) state.vModel="ecmwf";
     var sel=document.getElementById("vStation"); if(sel){ sel.innerHTML=st.map(function(s){ return '<option value="'+s.id+'"'+(s.id===state.vStation?" selected":"")+'>'+escapeHtml(s.name)+(isLiveTier(s)?"":" (not live)")+'</option>'; }).join(""); }
-    setSeg("vLeadSeg","data-l",state.vLead); setSeg("vRangeSeg","data-r",state.vRange); setSeg("vLayoutSeg","data-y",state.vLayout); setSeg("vMetricSeg","data-m",state.vMetric);
+    setSeg("vLeadSeg","data-l",state.vLead); setSeg("vRangeSeg","data-r",state.vRange); setSeg("vLayoutSeg","data-y",state.vLayout); setSeg("vMetricSeg","data-m",state.vMetric); setSeg("vModelSeg","data-o",state.vModel);
     loadForecasts(false);
-    var s=byId(state.vStation), end=Date.now(), since=end-state.vRange*3600000, u=UNIT_LABEL[state.unit];
-    if(FC_ERR && !FC[s.id]){ wrap.innerHTML='<div class="vnote">Could not load forecasts ('+escapeHtml(FC_ERR)+'). Retrying on next refresh.</div>'; return; }
-    if(!FC[s.id]){ wrap.innerHTML='<div class="vnote">Loading ECMWF forecasts…</div>'; return; }
-    var obs=obsHourly(s,since,end), leads=vLeads();
-    var fcl=leads.map(function(l){ return {lead:l, pts:fcSeries(s.id,l.k,since,end)}; });
+    var s=byId(state.vStation), end=Date.now(), since=end-state.vRange*3600000, u=UNIT_LABEL[state.unit], models=vModels(), leads=vLeads();
+    var needE=models.some(function(m){return m.id==="ecmwf";});
+    if(needE && FC_ERR && !FC[s.id]){ wrap.innerHTML='<div class="vnote">Could not load ECMWF forecasts ('+escapeHtml(FC_ERR)+'). Retrying on next refresh.</div>'; return; }
+    if(needE && !FC[s.id]){ wrap.innerHTML='<div class="vnote">Loading ECMWF forecasts…</div>'; return; }
+    var obs=obsHourly(s,since,end);
+    var fcl=[]; models.forEach(function(m){ leads.forEach(function(l){ fcl.push({m:m, lead:l, pts:fcSeries(s.id,l.k,since,end,m.id)}); }); });
     var maxY=5; obs.forEach(function(p){ if(p.wind>maxY)maxY=p.wind; }); fcl.forEach(function(f){ f.pts.forEach(function(p){ if(p.wind>maxY)maxY=p.wind; }); }); maxY*=1.12;
-    var metric=state.vMetric, obsLine={obs:true,col:"var(--ink)",pts:obs}, fcLines=fcl.map(function(f){ return {col:f.lead.col, pts:f.pts}; });
-    var mt=metric==="dir"?" — direction":" — wind ("+u+")";
+    var metric=state.vMetric, obsLine={obs:true,col:"var(--ink)",pts:obs}, fcLines=fcl.map(function(f){ return {col:f.lead.col, dash:f.m.dash, pts:f.pts}; });
+    var mt=metric==="dir"?" — direction":" — wind ("+u+")", mnames=models.map(function(m){return m.full;}).join(" + ");
     var charts;
     if(state.vLayout==="side"){
-      charts='<div class="vside"><div class="vpanel">'+vChartSvg([obsLine],since,end,metric,maxY,"Observed"+mt,620,300)+'</div><div class="vpanel">'+vChartSvg(fcLines,since,end,metric,maxY,"Forecast (ECMWF IFS)"+mt,620,300)+'</div></div>';
+      charts='<div class="vside"><div class="vpanel">'+vChartSvg([obsLine],since,end,metric,maxY,"Observed"+mt,620,300)+'</div><div class="vpanel">'+vChartSvg(fcLines,since,end,metric,maxY,"Forecast ("+mnames+")"+mt,620,300)+'</div></div>';
     } else {
       charts='<div class="vpanel">'+vChartSvg(fcLines.concat([obsLine]),since,end,metric,maxY,s.name+mt,1000,320)+'</div>';
     }
-    var cov=obs.length?'':'<div class="vnote">No observed history in this window yet — the 7-day record builds up from now on.</div>';
-    // scorecard for this station
-    var sc='<table class="vscore"><thead><tr><th>Lead</th><th>Avg error</th><th>Bias</th><th>Dir error</th><th>Hours</th></tr></thead><tbody>';
-    LEADS.forEach(function(l){ var r=scoreLead(obs,fcSeries(s.id,l.k,since,end));
-      sc+='<tr><td><span class="vsw" style="border-color:'+l.col+'"></span>'+l.lbl+'</td><td>'+(r?vNum(r.mae)+' '+u:"–")+'</td><td class="'+(r&&r.bias<0?"vneg":"vpos")+'">'+(r?fmtBias(r.bias)+' '+u:"–")+'</td><td>'+(r&&r.dirErr!=null?Math.round(r.dirErr)+"°":"–")+'</td><td>'+(r?r.n:0)+'</td></tr>'; });
+    var notes='';
+    if(!obs.length) notes+='<div class="vnote">No observed history in this window yet — the 7-day record builds up from now on.</div>';
+    if(models.some(function(m){return m.id==="mb";}) && !mbHas(s.id)) notes+='<div class="vnote">No meteoblue forecasts saved for '+escapeHtml(s.name)+' yet. They are saved once a day for the launch and ARSO stations; a 1-day comparison appears after 1 day, 3-day after 3.</div>';
+    // scorecard for this station: one row per model x lead
+    var sc='<table class="vscore"><thead><tr><th>Forecast</th><th>Avg error</th><th>Bias</th><th>Dir error</th><th>Hours</th></tr></thead><tbody>';
+    models.forEach(function(m){ LEADS.forEach(function(l){ var r=scoreLead(obs,fcSeries(s.id,l.k,since,end,m.id));
+      sc+='<tr><td><span class="vsw" style="border-color:'+l.col+';border-top-style:'+(m.id==="mb"?"dotted":"dashed")+'"></span>'+m.name+' '+l.lbl+'</td><td>'+(r?vNum(r.mae)+' '+u:"–")+'</td><td class="'+(r&&r.bias<0?"vneg":"vpos")+'">'+(r?fmtBias(r.bias)+' '+u:"–")+'</td><td>'+(r&&r.dirErr!=null?Math.round(r.dirErr)+"°":"–")+'</td><td>'+(r?r.n:0)+'</td></tr>'; }); });
     sc+='</tbody></table><div class="vhelp">Avg error = typical miss. Bias: + forecast too strong, &minus; too weak. Dir error only counts hours with wind &ge; 5 km/h.</div>';
-    // all-station summary (same window)
+    // all-station summary; in "Both" each cell reads "ECMWF / meteoblue"
+    function cell(ob,id,k,key){ var vals=models.map(function(m){ var r=scoreLead(ob,fcSeries(id,k,since,end,m.id)); return r?(key==="mae"?vNum(r.mae):fmtBias(r.bias)):"–"; }); return vals.join(" / "); }
     var allT='<table class="vscore vall"><thead><tr><th>Station</th>'+LEADS.map(function(l){return '<th>'+l.k+'d err</th><th>'+l.k+'d bias</th>';}).join("")+'</tr></thead><tbody>';
-    st.forEach(function(x){ var ob=obsHourly(x,since,end); if(!ob.length||!FC[x.id])return;
-      allT+='<tr data-vst="'+x.id+'" class="'+(x.id===s.id?"on":"")+'"><td>'+escapeHtml(x.name)+'</td>'+LEADS.map(function(l){ var r=scoreLead(ob,fcSeries(x.id,l.k,since,end)); return '<td>'+(r?vNum(r.mae):"–")+'</td><td class="'+(r&&r.bias<0?"vneg":"vpos")+'">'+(r?fmtBias(r.bias):"–")+'</td>'; }).join("")+'</tr>'; });
+    st.forEach(function(x){ var ob=obsHourly(x,since,end); if(!ob.length)return; if(!FC[x.id]&&!mbHas(x.id))return;
+      allT+='<tr data-vst="'+x.id+'" class="'+(x.id===s.id?"on":"")+'"><td>'+escapeHtml(x.name)+'</td>'+LEADS.map(function(l){ return '<td>'+cell(ob,x.id,l.k,"mae")+'</td><td>'+cell(ob,x.id,l.k,"bias")+'</td>'; }).join("")+'</tr>'; });
     allT+='</tbody></table>';
-    wrap.innerHTML='<div class="vlegend">'+vLegend()+'</div>'+cov+charts+
+    wrap.innerHTML='<div class="vlegend">'+vLegend()+'</div>'+notes+charts+
       '<div class="vgrid"><div class="vcard"><div class="vh">'+escapeHtml(s.name)+' &middot; last '+(state.vRange>=48?(state.vRange/24)+' days':state.vRange+' h')+'</div>'+sc+'</div>'+
-      '<div class="vcard"><div class="vh">All stations ('+u+') &middot; click a row</div>'+allT+'</div></div>'+
-      '<div class="vhelp">Forecasts: ECMWF IFS 0.25&deg; via Open-Meteo, 10 m wind at each station&rsquo;s coordinates. Model terrain is smoothed (25 km grid), so sharp summits usually read stronger than forecast &mdash; watch the bias and timing more than exact numbers.</div>';
+      '<div class="vcard"><div class="vh">All stations ('+u+')'+(models.length>1?' &middot; ECMWF / meteoblue':'')+' &middot; click a row</div>'+allT+'</div></div>'+
+      '<div class="vhelp">ECMWF IFS 0.25&deg; via Open-Meteo (back-filled 7 days). meteoblue: one forecast saved per day by the collector. Both at each station&rsquo;s coordinates and elevation, 10 m wind. Model terrain is smoothed, so sharp summits usually read stronger than forecast &mdash; watch bias and timing more than exact numbers.</div>';
   }
   function wireVerify(){
     var v=document.getElementById("verifyview"); if(!v||v._wired)return; v._wired=true;
     v.addEventListener("click",function(e){ var b=e.target.closest("button"), row=e.target.closest("[data-vst]");
       if(row){ state.vStation=row.getAttribute("data-vst"); persist(); renderVerify(); return; }
       if(!b)return; var p=b.parentNode.id;
-      if(p==="vLeadSeg")state.vLead=b.getAttribute("data-l"); else if(p==="vRangeSeg")state.vRange=+b.getAttribute("data-r"); else if(p==="vLayoutSeg")state.vLayout=b.getAttribute("data-y"); else if(p==="vMetricSeg")state.vMetric=b.getAttribute("data-m"); else return;
+      if(p==="vLeadSeg")state.vLead=b.getAttribute("data-l"); else if(p==="vRangeSeg")state.vRange=+b.getAttribute("data-r"); else if(p==="vLayoutSeg")state.vLayout=b.getAttribute("data-y"); else if(p==="vMetricSeg")state.vMetric=b.getAttribute("data-m"); else if(p==="vModelSeg")state.vModel=b.getAttribute("data-o"); else return;
       persist(); renderVerify(); });
     v.addEventListener("change",function(e){ if(e.target.id==="vStation"){ state.vStation=e.target.value; persist(); renderVerify(); } });
   }
@@ -1674,7 +1694,7 @@
     state.order=kept; dataLoadedOnce=true;
   }
   function handleData(j){ var arr=Array.isArray(j)?j:(j.stations||[]); DATA_META.generated=(j&&j.generated)?j.generated:new Date().toISOString(); ingest(arr); STATIONS.forEach(mergeHist); if(typeof renderLists==="function" && !editingList) renderLists(); render(); decideFallback(); }
-  function loadData(){ return loadHistory().then(loadDataInner); }
+  function loadData(){ return Promise.all([loadHistory(),loadMb()]).then(loadDataInner); }
   function loadDataInner(){
     // Live wind comes from the camstore branch (refreshed by the loop, served via raw). Falls
     // back to a same-origin data.json if raw is unreachable.
@@ -1691,7 +1711,7 @@
     Promise.all([loadStore("pmw_lists"),loadStore("pmw_settings")]).then(function(v){
       if(v[0]&&v[0].length){ state.lists=v[0].filter(function(l){return l.id!=="fav";}); }
       if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir;
-        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; if(typeof q.showGusts==="boolean")state.showGusts=q.showGusts; if(q.elevUnit)state.elevUnit=q.elevUnit; if(q.upper)state.upper=q.upper; if(q.lower)state.lower=q.lower; if(q.groupsInit)state.groupsInit=true; if(q.vStation)state.vStation=q.vStation; if(q.vLead)state.vLead=String(q.vLead); if(q.vRange)state.vRange=q.vRange; if(q.vLayout)state.vLayout=q.vLayout; if(q.vMetric)state.vMetric=q.vMetric; }
+        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; if(typeof q.showGusts==="boolean")state.showGusts=q.showGusts; if(q.elevUnit)state.elevUnit=q.elevUnit; if(q.upper)state.upper=q.upper; if(q.lower)state.lower=q.lower; if(q.groupsInit)state.groupsInit=true; if(q.vStation)state.vStation=q.vStation; if(q.vLead)state.vLead=String(q.vLead); if(q.vRange)state.vRange=q.vRange; if(q.vLayout)state.vLayout=q.vLayout; if(q.vMetric)state.vMetric=q.vMetric; if(q.vModel)state.vModel=q.vModel; }
       applySyncHash();   // a #sync=… link (opened on this device) overrides local settings + imports lists
       applySkin(state.skin);
       setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("botnav","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
