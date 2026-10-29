@@ -524,6 +524,30 @@
   .graphreadout b{color:var(--ink);font-weight:600}
   .graphreadout .grw b{color:var(--go)}
   [data-graph]{cursor:crosshair}
+  /* Verify view (observed vs forecast) */
+  .verifyview{height:100%;overflow:auto;padding:12px 16px 24px}
+  .vbar{flex-wrap:wrap;gap:10px}
+  .vsel{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:13px;max-width:220px}
+  .verifywrap{display:flex;flex-direction:column;gap:12px;margin-top:10px}
+  .vpanel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px}
+  .vpanel svg{width:100%;height:auto;display:block}
+  .vside{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+  .vlegend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink-dim)}
+  .vleg{display:inline-flex;align-items:center;gap:6px}
+  .vleg.off{color:var(--ink-faint);font-style:italic}
+  .vsw{display:inline-block;width:20px;border-top:2px dashed;vertical-align:middle;margin-right:6px}
+  .vsw.obs{border-top:3px solid var(--ink)}
+  .vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+  .vcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;overflow-x:auto}
+  .vh{font-weight:600;font-size:13px;margin-bottom:6px}
+  .vscore{width:100%;border-collapse:collapse;font-size:12.5px}
+  .vscore th{text-align:left;color:var(--ink-faint);font-weight:500;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .vscore td{padding:4px 6px;border-bottom:1px solid var(--line);font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  .vscore td:first-child{font-family:inherit}
+  .vall tr{cursor:pointer} .vall tr.on td{background:var(--panel-2)} .vall tbody tr:hover td{background:var(--panel-2)}
+  .vneg{color:#59c7e8} .vpos{color:#f2a65a}
+  .vhelp{font-size:11.5px;color:var(--ink-faint);margin-top:6px}
+  .vnote{padding:18px;text-align:center;color:var(--ink-dim);font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
 </style>
 
 <div id="topchrome">
@@ -538,7 +562,7 @@
   <div class="lists" id="lists"></div>
   <div class="spacer"></div>
   <div class="controls">
-    <div class="ctl viewctl"><label class="viewlbl">View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button><button data-v="sky">Skytech</button></div></div>
+    <div class="ctl viewctl"><label class="viewlbl">View</label><div class="seg" id="viewSeg"><button data-v="map">Map</button><button data-v="list">List</button><button data-v="chart">Chart</button><button data-v="cams">Cams</button><button data-v="sky">Skytech</button><button data-v="verify">Verify</button></div></div>
     <button class="act" id="settingsBtn">&#9881; <span class="btxt">Settings</span></button>
     <button class="act" id="refresh"><span id="refIcon">&#8635;</span> <span class="btxt">Refresh</span></button>
   </div>
@@ -553,7 +577,7 @@
   <div class="tableview" id="listview" style="display:none"><table class="wt"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
   <div class="chartview" id="chartview" style="display:none">
     <div class="chartbar">
-      <div class="ctl"><label>Window</label><div class="seg" id="rangeSeg"><button data-r="2">2 h</button><button data-r="6">6 h</button><button data-r="12">12 h</button><button data-r="24">24 h</button></div></div>
+      <div class="ctl"><label>Window</label><div class="seg" id="rangeSeg"><button data-r="2">2 h</button><button data-r="6">6 h</button><button data-r="12">12 h</button><button data-r="24">24 h</button><button data-r="48">48 h</button><button data-r="72">72 h</button><button data-r="168">7 d</button></div></div>
       <div class="ctl"><label>Show</label><div class="seg" id="metricSeg"><button data-m="wind">Wind</button><button data-m="gust">Gusts</button><button data-m="both">Both</button></div></div>
       <div class="chartlegend" id="chartlegend"></div>
     </div>
@@ -564,6 +588,16 @@
     <div class="camgroups" id="camgrid"></div>
   </div>
   <div class="skyview" id="skyview" style="display:none"></div>
+  <div class="verifyview" id="verifyview" style="display:none">
+    <div class="chartbar vbar">
+      <div class="ctl"><label>Station</label><select id="vStation" class="vsel"></select></div>
+      <div class="ctl"><label>Forecast</label><div class="seg" id="vLeadSeg"><button data-l="all">All</button><button data-l="1">1 day</button><button data-l="2">2 days</button><button data-l="3">3 days</button></div></div>
+      <div class="ctl"><label>Window</label><div class="seg" id="vRangeSeg"><button data-r="24">24 h</button><button data-r="72">3 d</button><button data-r="168">7 d</button></div></div>
+      <div class="ctl"><label>Show</label><div class="seg" id="vMetricSeg"><button data-m="wind">Speed</button><button data-m="dir">Direction</button></div></div>
+      <div class="ctl"><label>Layout</label><div class="seg" id="vLayoutSeg"><button data-y="overlay">Overlay</button><button data-y="side">Side by side</button></div></div>
+    </div>
+    <div class="verifywrap" id="verifywrap"></div>
+  </div>
 </div>
 
 
@@ -573,6 +607,7 @@
   <button data-v="chart">Chart</button>
   <button data-v="cams">Cams</button>
   <button data-v="sky">Skytech</button>
+  <button data-v="verify">Verify</button>
 </nav>
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
@@ -593,6 +628,7 @@
   var GUSTCOL="#f5b942";   // amber gust barbs shown on marker hover
 
   var state={ unit:"ms", caution:13.6, danger:21.4, active:"all", view:"map", sortKey:"custom", sortDir:1,
+    vStation:null, vLead:"all", vRange:72, vLayout:"overlay", vMetric:"wind",
     chartRange:6, chartMetric:"wind", chartHidden:{}, basemap:"dark", skin:"dark", showGusts:false, elevUnit:"m",
     barbScale:1, indicator:"barb", calmScale:1, sparkRange:2,
     camNames:{}, camOrder:[], camHidden:{},
@@ -626,7 +662,7 @@
     if(typeof window!=="undefined" && window.storage){ try{ window.storage.set(key,JSON.stringify(val),false).catch(function(){}); }catch(e){} return; }
     try{ window.localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
   }
-  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden,showGusts:state.showGusts,elevUnit:state.elevUnit,upper:state.upper,lower:state.lower,groupsInit:state.groupsInit}); }
+  function persist(){ saveStore("pmw_lists",state.lists); saveStore("pmw_settings",{unit:state.unit,caution:state.caution,danger:state.danger,active:state.active,basemap:state.basemap,skin:state.skin,order:state.order,mapHidden:state.mapHidden,chartRange:state.chartRange,chartMetric:state.chartMetric,sortKey:state.sortKey,sortDir:state.sortDir,barbScale:state.barbScale,indicator:state.indicator,calmScale:state.calmScale,sparkRange:state.sparkRange,camNames:state.camNames,camOrder:state.camOrder,camHidden:state.camHidden,showGusts:state.showGusts,elevUnit:state.elevUnit,upper:state.upper,lower:state.lower,groupsInit:state.groupsInit,vStation:state.vStation,vLead:state.vLead,vRange:state.vRange,vLayout:state.vLayout,vMetric:state.vMetric}); }
   function elevStr(m){ if(m==null||m==="")return ""; return state.elevUnit==="ft"?(Math.round(m*3.28084)+"ft"):(m+"m"); }
   // Cross-device sync: pack lists + settings into a link (#sync=…). Opening that link on another
   // device imports them. Manual carry (no server) — this is the local-storage-per-device workaround.
@@ -878,14 +914,14 @@
   }
 
   // ---- chart view ----
-  function computeMaxY(){ var m=1; visibleStations().forEach(function(s){ s.hi.forEach(function(p){ var a=disp(p.wind), b=disp(p.gust); if(a>m)m=a; if(b>m)m=b; }); }); return m*1.1; }
-  function tickStepH(range){ return range<=2?0.5:range<=6?1:range<=12?2:4; }
+  function computeMaxY(since){ var m=1; visibleStations().forEach(function(s){ if(state.chartHidden[s.id])return; s.hi.forEach(function(p){ if(since&&p.t<since)return; var a=disp(p.wind), b=disp(p.gust); if(a>m)m=a; if(b>m)m=b; }); }); return m*1.1; }
+  function tickStepH(range){ return range<=2?0.5:range<=6?1:range<=12?2:range<=24?4:range<=72?12:24; }
   function renderChart(){
     var wrap=document.getElementById("chartwrap");
     var all=visibleStations().filter(isLiveTier), range=state.chartRange, since=Date.now()-range*3600000, now=Date.now(), metric=state.chartMetric, u=UNIT_LABEL[state.unit];
     document.getElementById("chartlegend").innerHTML=all.map(function(s){ var off=state.chartHidden[s.id]?"off":""; return '<span class="lchip '+off+'" data-legend="'+s.id+'"><span class="dot" style="background:'+colorFor(s)+'"></span>'+escapeHtml(s.name)+'</span>'; }).join("");
     var rows=all.map(function(s){ var pts=s.hi.filter(function(p){return p.t>=since;}).map(function(p){ return {t:p.t, wind:disp(p.wind), gust:disp(p.gust)}; }); return {s:s, pts:pts}; });
-    var maxY=computeMaxY();
+    var maxY=computeMaxY(since);
     var W=1000,H=420,mL=46,mR=64,mT=14,mB=28,x0=mL,x1=W-mR,y0=mT,y1=H-mB;
     var _pad=(now-since)*0.12, axisEnd=now+_pad;
     function X(t){ return x0+(t-since)/(axisEnd-since)*(x1-x0); }
@@ -894,7 +930,9 @@
     var i;
     for(i=0;i<=4;i++){ var v=maxY*i/4, y=Y(v); svg+='<line x1="'+x0+'" y1="'+y.toFixed(1)+'" x2="'+x1+'" y2="'+y.toFixed(1)+'" stroke="#22324a" stroke-width="1"/><text x="'+(x0-6)+'" y="'+(y+3).toFixed(1)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11" text-anchor="end">'+(state.unit==="ms"?v.toFixed(1):Math.round(v))+'</text>'; }
     var stepMs=tickStepH(range)*3600000, first=Math.ceil(since/stepMs)*stepMs;
-    for(var t=first;t<=now;t+=stepMs){ var x=X(t), d=new Date(t); svg+='<line x1="'+x.toFixed(1)+'" y1="'+y0+'" x2="'+x.toFixed(1)+'" y2="'+y1+'" stroke="#1b2a3e" stroke-width="1"/><text x="'+x.toFixed(1)+'" y="'+(y1+16)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">'+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</text>'; }
+    if(stepMs>=3600000){ var fd=new Date(since), sh=stepMs/3600000; fd.setMinutes(0,0,0); fd.setHours(fd.getHours()-(fd.getHours()%sh)+sh); first=fd.getTime(); }
+    var DAYN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    for(var t=first;t<=now;t+=stepMs){ var x=X(t), d=new Date(t); svg+='<line x1="'+x.toFixed(1)+'" y1="'+y0+'" x2="'+x.toFixed(1)+'" y2="'+y1+'" stroke="#1b2a3e" stroke-width="1"/><text x="'+x.toFixed(1)+'" y="'+(y1+16)+'" fill="#8399ad" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">'+(stepMs>=12*3600000?DAYN[d.getDay()]+" ":"")+pad2(d.getHours())+":"+pad2(d.getMinutes())+'</text>'; }
     var cD=knotsToDisp(state.caution), dD=knotsToDisp(state.danger);
     if(cD<=maxY){ svg+='<line x1="'+x0+'" y1="'+Y(cD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(cD).toFixed(1)+'" stroke="var(--caution)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>'; }
     if(dD<=maxY){ svg+='<line x1="'+x0+'" y1="'+Y(dD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(dD).toFixed(1)+'" stroke="var(--danger)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>'; }
@@ -941,11 +979,136 @@
   }
   function chartLeave(){ var c=document.getElementById("chair"), t=document.getElementById("ctip"); if(c)c.style.display="none"; if(t)t.style.display="none"; }
 
+  // ---- Verify view: observed wind vs what models forecast 1/2/3 days earlier ----
+  // Forecasts come from Open-Meteo's Previous Runs API (ECMWF IFS 0.25°), fetched straight from the
+  // browser for every station's exact lat/lon/elevation. "previous_dayN" = the value for that hour
+  // from the model run made N days earlier, so 24/48/72h-ahead forecasts are available back-dated.
+  var FC={}, FC_TS=0, FC_LOADING=false, FC_ERR=null;
+  var LEADS=[{k:1,lbl:"1 day ahead",col:"#59c7e8"},{k:2,lbl:"2 days ahead",col:"#f2c14e"},{k:3,lbl:"3 days ahead",col:"#b58cf0"}];
+  var FC_MODELS=[{id:"ecmwf_ifs025",name:"ECMWF IFS",on:true},{id:"meteoblue_ai",name:"meteoblue AI",on:false,note:"needs meteoblue API key"}];
+  function fcStations(){ return STATIONS.filter(function(s){ return s.real && s.lat!=null && s.lon!=null; }); }
+  function loadForecasts(force){
+    if(FC_LOADING) return; if(!force && FC_TS && Date.now()-FC_TS<30*60000) return;
+    var st=fcStations(); if(!st.length) return;
+    FC_LOADING=true; FC_ERR=null;
+    var vars=["wind_speed_10m","wind_direction_10m","wind_gusts_10m"], hv=[];
+    vars.forEach(function(v){ [1,2,3].forEach(function(k){ hv.push(v+"_previous_day"+k); }); });
+    var url="https://previous-runs-api.open-meteo.com/v1/forecast?latitude="+st.map(function(s){return s.lat;}).join(",")+
+      "&longitude="+st.map(function(s){return s.lon;}).join(",")+
+      "&elevation="+st.map(function(s){return (s.elev!=null&&s.elev!=="")?s.elev:"nan";}).join(",")+
+      "&hourly="+hv.join(",")+"&models=ecmwf_ifs025&past_days=7&forecast_days=1&timezone=GMT&timeformat=unixtime&wind_speed_unit=kmh";
+    fetch(url).then(function(r){ return r.json(); }).then(function(j){
+      var arr=Array.isArray(j)?j:[j];
+      if(arr[0]&&arr[0].error) throw new Error(arr[0].reason||"error");
+      arr.forEach(function(x,i){ var s=st[i]; if(!s||!x.hourly)return; var h=x.hourly, o={t:h.time.map(function(t){return t*1000;})};
+        [1,2,3].forEach(function(k){ o["w"+k]=h["wind_speed_10m_previous_day"+k]||[]; o["d"+k]=h["wind_direction_10m_previous_day"+k]||[]; o["g"+k]=h["wind_gusts_10m_previous_day"+k]||[]; });
+        FC[s.id]=o; });
+      FC_TS=Date.now();
+    }).catch(function(e){ FC_ERR=String(e.message||e); }).then(function(){ FC_LOADING=false; if(state.view==="verify") renderVerify(); });
+  }
+  function circMean(a){ var x=0,y=0,n=0; a.forEach(function(d){ if(d==null||isNaN(d))return; x+=Math.cos(d*Math.PI/180); y+=Math.sin(d*Math.PI/180); n++; }); if(!n)return null; var m=Math.atan2(y,x)*180/Math.PI; return (m+360)%360; }
+  function angDiff(a,b){ var d=Math.abs(a-b)%360; return d>180?360-d:d; }
+  // Observed hourly values: mean of the station's samples within ±30 min of each full hour.
+  function obsHourly(s,since,end){ var out=[], H=3600000, h0=Math.ceil(since/H)*H; if(!s.hi||!s.hi.length)return out;
+    for(var t=h0;t<=end;t+=H){ var w=s.hi.filter(function(p){return p.t>=t-H/2 && p.t<t+H/2;}); if(!w.length)continue;
+      var mw=0,mg=0; w.forEach(function(p){mw+=p.wind;mg+=p.gust;}); out.push({t:t, wind:mw/w.length, gust:mg/w.length, dir:circMean(w.map(function(p){return p.dir;}))}); }
+    return out; }
+  function fcSeries(id,k,since,end){ var f=FC[id]; if(!f)return []; var out=[];
+    for(var i=0;i<f.t.length;i++){ var t=f.t[i]; if(t<since||t>end)continue; var w=f["w"+k][i]; if(w==null)continue; out.push({t:t, wind:w, gust:f["g"+k][i], dir:f["d"+k][i]}); }
+    return out; }
+  // Score one lead against observations: mean abs error, bias (+ = forecast too strong), direction error.
+  function scoreLead(obs,fc){ var m={}; fc.forEach(function(p){ m[p.t]=p; }); var n=0,ae=0,b=0,dn=0,de=0;
+    obs.forEach(function(o){ var f=m[o.t]; if(!f)return; n++; ae+=Math.abs(f.wind-o.wind); b+=f.wind-o.wind;
+      if(o.wind>=5 && o.dir!=null && f.dir!=null){ dn++; de+=angDiff(o.dir,f.dir); } });
+    return n?{n:n, mae:ae/n, bias:b/n, dirErr:dn?de/dn:null, dn:dn}:null; }
+  function vLeads(){ return state.vLead==="all"?LEADS:LEADS.filter(function(l){return String(l.k)===String(state.vLead);}); }
+  function vNum(kmh){ return fmt(kmh); }
+  function vChartSvg(lines,since,end,metric,maxY,title,W,H){
+    W=W||1000; H=H||300; var mL=44,mR=14,mT=22,mB=26,x0=mL,x1=W-mR,y0=mT,y1=H-mB, isDir=(metric==="dir");
+    var top=isDir?360:maxY;
+    function X(t){ return x0+(t-since)/(end-since)*(x1-x0); } function Y(v){ return y1-(v/top)*(y1-y0); }
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" class="vsvg">', i;
+    var ticks=isDir?[0,90,180,270,360]:[0,1,2,3,4].map(function(i){return top*i/4;});
+    ticks.forEach(function(v){ var y=Y(v); svg+='<line x1="'+x0+'" y1="'+y.toFixed(1)+'" x2="'+x1+'" y2="'+y.toFixed(1)+'" stroke="var(--line)" stroke-width="1"/><text x="'+(x0-6)+'" y="'+(y+3).toFixed(1)+'" fill="var(--ink-faint)" font-family="IBM Plex Mono" font-size="11" text-anchor="end">'+(isDir?({0:"N",90:"E",180:"S",270:"W",360:"N"})[v]:(disp(top)<10?disp(v).toFixed(1):Math.round(disp(v))))+'</text>'; });
+    var span=end-since, stepH=span<=26*3600000?3:span<=80*3600000?12:24, step=stepH*3600000, d0=new Date(since); d0.setMinutes(0,0,0); d0.setHours(d0.getHours()-(d0.getHours()%stepH)+stepH);
+    for(var t=d0.getTime();t<end;t+=step){ var x=X(t),d=new Date(t); svg+='<line x1="'+x.toFixed(1)+'" y1="'+y0+'" x2="'+x.toFixed(1)+'" y2="'+y1+'" stroke="var(--line)" stroke-width="1" opacity=".5"/><text x="'+x.toFixed(1)+'" y="'+(y1+16)+'" fill="var(--ink-faint)" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">'+(d.getHours()===0||stepH>=24?(["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]+" "):"")+pad2(d.getHours())+':00</text>'; }
+    if(!isDir){ var cD=knotsToDisp(state.caution)/FROM_KMH[state.unit], dD=knotsToDisp(state.danger)/FROM_KMH[state.unit];
+      if(cD<=top) svg+='<line x1="'+x0+'" y1="'+Y(cD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(cD).toFixed(1)+'" stroke="var(--caution)" stroke-dasharray="4 4" opacity=".5"/>';
+      if(dD<=top) svg+='<line x1="'+x0+'" y1="'+Y(dD).toFixed(1)+'" x2="'+x1+'" y2="'+Y(dD).toFixed(1)+'" stroke="var(--danger)" stroke-dasharray="4 4" opacity=".5"/>'; }
+    lines.forEach(function(L){ var pts=L.pts; if(!pts.length)return;
+      if(isDir){ pts.forEach(function(p){ if(p.dir==null)return; svg+='<circle cx="'+X(p.t).toFixed(1)+'" cy="'+Y(p.dir).toFixed(1)+'" r="'+(L.obs?3:2.4)+'" fill="'+L.col+'" opacity="'+(L.obs?1:.8)+'"/>'; }); return; }
+      // break the line across gaps > 2h so missing data isn't drawn as a straight bridge
+      var seg=[], segs=[seg]; pts.forEach(function(p,j){ if(j&&p.t-pts[j-1].t>2*3600000){ seg=[]; segs.push(seg);} seg.push(p); });
+      segs.forEach(function(sg){ if(sg.length<2){ if(sg.length===1) svg+='<circle cx="'+X(sg[0].t).toFixed(1)+'" cy="'+Y(sg[0].wind).toFixed(1)+'" r="2" fill="'+L.col+'"/>'; return; }
+        svg+='<polyline points="'+sg.map(function(p){return X(p.t).toFixed(1)+","+Y(p.wind).toFixed(1);}).join(" ")+'" fill="none" stroke="'+L.col+'" stroke-width="'+(L.obs?2.6:1.7)+'" stroke-linejoin="round"'+(L.obs?'':' stroke-dasharray="5 3"')+'/>'; }); });
+    svg+='<text x="'+x0+'" y="14" fill="var(--ink-dim)" font-family="IBM Plex Sans" font-size="12" font-weight="600">'+escapeHtml(title)+'</text></svg>';
+    return svg; }
+  function vLegend(){ var h='<span class="vleg"><span class="vsw obs"></span>Observed (hourly mean)</span>';
+    vLeads().forEach(function(l){ h+='<span class="vleg"><span class="vsw" style="border-color:'+l.col+'"></span>ECMWF '+l.lbl+'</span>'; });
+    FC_MODELS.forEach(function(m){ if(!m.on) h+='<span class="vleg off" title="'+escapeHtml(m.note||"")+'">'+escapeHtml(m.name)+' &middot; '+escapeHtml(m.note||"off")+'</span>'; });
+    return h; }
+  function fmtBias(kmh){ if(kmh==null)return "–"; var v=disp(kmh); return (v>0?"+":"")+(state.unit==="ms"?v.toFixed(1):Math.round(v)); }
+  function renderVerify(){
+    var wrap=document.getElementById("verifywrap"); if(!wrap)return;
+    var st=fcStations(); if(!st.length){ wrap.innerHTML='<div class="vnote">Waiting for station data…</div>'; return; }
+    if(!state.vStation||!byId(state.vStation)) state.vStation=(st.filter(isLiveTier)[0]||st[0]).id;
+    var sel=document.getElementById("vStation"); if(sel){ sel.innerHTML=st.map(function(s){ return '<option value="'+s.id+'"'+(s.id===state.vStation?" selected":"")+'>'+escapeHtml(s.name)+(isLiveTier(s)?"":" (not live)")+'</option>'; }).join(""); }
+    setSeg("vLeadSeg","data-l",state.vLead); setSeg("vRangeSeg","data-r",state.vRange); setSeg("vLayoutSeg","data-y",state.vLayout); setSeg("vMetricSeg","data-m",state.vMetric);
+    loadForecasts(false);
+    var s=byId(state.vStation), end=Date.now(), since=end-state.vRange*3600000, u=UNIT_LABEL[state.unit];
+    if(FC_ERR && !FC[s.id]){ wrap.innerHTML='<div class="vnote">Could not load forecasts ('+escapeHtml(FC_ERR)+'). Retrying on next refresh.</div>'; return; }
+    if(!FC[s.id]){ wrap.innerHTML='<div class="vnote">Loading ECMWF forecasts…</div>'; return; }
+    var obs=obsHourly(s,since,end), leads=vLeads();
+    var fcl=leads.map(function(l){ return {lead:l, pts:fcSeries(s.id,l.k,since,end)}; });
+    var maxY=5; obs.forEach(function(p){ if(p.wind>maxY)maxY=p.wind; }); fcl.forEach(function(f){ f.pts.forEach(function(p){ if(p.wind>maxY)maxY=p.wind; }); }); maxY*=1.12;
+    var metric=state.vMetric, obsLine={obs:true,col:"var(--ink)",pts:obs}, fcLines=fcl.map(function(f){ return {col:f.lead.col, pts:f.pts}; });
+    var mt=metric==="dir"?" — direction":" — wind ("+u+")";
+    var charts;
+    if(state.vLayout==="side"){
+      charts='<div class="vside"><div class="vpanel">'+vChartSvg([obsLine],since,end,metric,maxY,"Observed"+mt,620,300)+'</div><div class="vpanel">'+vChartSvg(fcLines,since,end,metric,maxY,"Forecast (ECMWF IFS)"+mt,620,300)+'</div></div>';
+    } else {
+      charts='<div class="vpanel">'+vChartSvg(fcLines.concat([obsLine]),since,end,metric,maxY,s.name+mt,1000,320)+'</div>';
+    }
+    var cov=obs.length?'':'<div class="vnote">No observed history in this window yet — the 7-day record builds up from now on.</div>';
+    // scorecard for this station
+    var sc='<table class="vscore"><thead><tr><th>Lead</th><th>Avg error</th><th>Bias</th><th>Dir error</th><th>Hours</th></tr></thead><tbody>';
+    LEADS.forEach(function(l){ var r=scoreLead(obs,fcSeries(s.id,l.k,since,end));
+      sc+='<tr><td><span class="vsw" style="border-color:'+l.col+'"></span>'+l.lbl+'</td><td>'+(r?vNum(r.mae)+' '+u:"–")+'</td><td class="'+(r&&r.bias<0?"vneg":"vpos")+'">'+(r?fmtBias(r.bias)+' '+u:"–")+'</td><td>'+(r&&r.dirErr!=null?Math.round(r.dirErr)+"°":"–")+'</td><td>'+(r?r.n:0)+'</td></tr>'; });
+    sc+='</tbody></table><div class="vhelp">Avg error = typical miss. Bias: + forecast too strong, &minus; too weak. Dir error only counts hours with wind &ge; 5 km/h.</div>';
+    // all-station summary (same window)
+    var allT='<table class="vscore vall"><thead><tr><th>Station</th>'+LEADS.map(function(l){return '<th>'+l.k+'d err</th><th>'+l.k+'d bias</th>';}).join("")+'</tr></thead><tbody>';
+    st.forEach(function(x){ var ob=obsHourly(x,since,end); if(!ob.length||!FC[x.id])return;
+      allT+='<tr data-vst="'+x.id+'" class="'+(x.id===s.id?"on":"")+'"><td>'+escapeHtml(x.name)+'</td>'+LEADS.map(function(l){ var r=scoreLead(ob,fcSeries(x.id,l.k,since,end)); return '<td>'+(r?vNum(r.mae):"–")+'</td><td class="'+(r&&r.bias<0?"vneg":"vpos")+'">'+(r?fmtBias(r.bias):"–")+'</td>'; }).join("")+'</tr>'; });
+    allT+='</tbody></table>';
+    wrap.innerHTML='<div class="vlegend">'+vLegend()+'</div>'+cov+charts+
+      '<div class="vgrid"><div class="vcard"><div class="vh">'+escapeHtml(s.name)+' &middot; last '+(state.vRange>=48?(state.vRange/24)+' days':state.vRange+' h')+'</div>'+sc+'</div>'+
+      '<div class="vcard"><div class="vh">All stations ('+u+') &middot; click a row</div>'+allT+'</div></div>'+
+      '<div class="vhelp">Forecasts: ECMWF IFS 0.25&deg; via Open-Meteo, 10 m wind at each station&rsquo;s coordinates. Model terrain is smoothed (25 km grid), so sharp summits usually read stronger than forecast &mdash; watch the bias and timing more than exact numbers.</div>';
+  }
+  function wireVerify(){
+    var v=document.getElementById("verifyview"); if(!v||v._wired)return; v._wired=true;
+    v.addEventListener("click",function(e){ var b=e.target.closest("button"), row=e.target.closest("[data-vst]");
+      if(row){ state.vStation=row.getAttribute("data-vst"); persist(); renderVerify(); return; }
+      if(!b)return; var p=b.parentNode.id;
+      if(p==="vLeadSeg")state.vLead=b.getAttribute("data-l"); else if(p==="vRangeSeg")state.vRange=+b.getAttribute("data-r"); else if(p==="vLayoutSeg")state.vLayout=b.getAttribute("data-y"); else if(p==="vMetricSeg")state.vMetric=b.getAttribute("data-m"); else return;
+      persist(); renderVerify(); });
+    v.addEventListener("change",function(e){ if(e.target.id==="vStation"){ state.vStation=e.target.value; persist(); renderVerify(); } });
+  }
+
+  // ---- 7-day observed history (history.json on camstore, written by the collector) ----
+  var HIST=null;
+  function mergeHist(s){ if(!HIST||!HIST.stations||!s.hi)return; var rows=HIST.stations[s.id]; if(!rows||!rows.length)return;
+    var first=s.hi.length?s.hi[0].t:Infinity, older=[];
+    rows.forEach(function(r){ var t=r[0]*60000; if(t<first-60000) older.push({t:t, wind:r[1], gust:r[2], dir:r[3]}); });
+    if(older.length) s.hi=older.concat(s.hi); }
+  function loadHistory(){ return fetch(LIVE_BASE+'history.json?ts='+Date.now(),{cache:'no-store'}).then(function(r){ if(!r.ok)throw 0; return r.json(); }).then(function(j){ HIST=j; }).catch(function(){}); }
+
   function render(){ var vis=visibleStations();
     if(state.view==="map"){ renderCards(vis); renderMarkers(vis); }
     else if(state.view==="list"){ renderTable(vis); }
     else if(state.view==="cams"){ renderCams(); }
     else if(state.view==="sky"){ renderSky(); }
+    else if(state.view==="verify"){ renderVerify(); }
     else{ renderChart(); }
   }
 
@@ -1299,6 +1462,7 @@
     document.getElementById("chartview").style.display=state.view==="chart"?"":"none";
     document.getElementById("camsview").style.display=state.view==="cams"?"":"none";
     document.getElementById("skyview").style.display=state.view==="sky"?"":"none";
+    document.getElementById("verifyview").style.display=state.view==="verify"?"":"none";
     if(state.view==="map"&&map){ setTimeout(function(){ map.invalidateSize(); },60); }
   }
   function toggleMember(listId,sid){ if(!sid)return; var l=listById(listId); if(!l)return; var i=l.members.indexOf(sid); if(i>=0)l.members.splice(i,1); else l.members.push(sid); persist(); renderLists(); render(); }
@@ -1509,8 +1673,9 @@
     ids.forEach(function(id){ if(kept.indexOf(id)<0)kept.push(id); });
     state.order=kept; dataLoadedOnce=true;
   }
-  function handleData(j){ var arr=Array.isArray(j)?j:(j.stations||[]); DATA_META.generated=(j&&j.generated)?j.generated:new Date().toISOString(); ingest(arr); if(typeof renderLists==="function" && !editingList) renderLists(); render(); decideFallback(); }
-  function loadData(){
+  function handleData(j){ var arr=Array.isArray(j)?j:(j.stations||[]); DATA_META.generated=(j&&j.generated)?j.generated:new Date().toISOString(); ingest(arr); STATIONS.forEach(mergeHist); if(typeof renderLists==="function" && !editingList) renderLists(); render(); decideFallback(); }
+  function loadData(){ return loadHistory().then(loadDataInner); }
+  function loadDataInner(){
     // Live wind comes from the camstore branch (refreshed by the loop, served via raw). Falls
     // back to a same-origin data.json if raw is unreachable.
     return fetch(LIVE_BASE+'data.json?ts='+Date.now(),{cache:'no-store'})
@@ -1526,12 +1691,12 @@
     Promise.all([loadStore("pmw_lists"),loadStore("pmw_settings")]).then(function(v){
       if(v[0]&&v[0].length){ state.lists=v[0].filter(function(l){return l.id!=="fav";}); }
       if(v[1]){ var q=v[1]; if(q.unit)state.unit=q.unit; if(typeof q.caution==="number")state.caution=q.caution; if(typeof q.danger==="number")state.danger=q.danger; if(q.active)state.active=q.active; if(q.basemap)state.basemap=q.basemap; if(q.order&&q.order.length)state.order=q.order; if(q.mapHidden)state.mapHidden=q.mapHidden; if(q.chartRange)state.chartRange=q.chartRange; if(q.chartMetric)state.chartMetric=q.chartMetric; if(q.sortKey)state.sortKey=q.sortKey; if(typeof q.sortDir==="number")state.sortDir=q.sortDir;
-        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; if(typeof q.showGusts==="boolean")state.showGusts=q.showGusts; if(q.elevUnit)state.elevUnit=q.elevUnit; if(q.upper)state.upper=q.upper; if(q.lower)state.lower=q.lower; if(q.groupsInit)state.groupsInit=true; }
+        if(typeof q.barbScale==="number")state.barbScale=q.barbScale; if(q.indicator)state.indicator=q.indicator; if(typeof q.calmScale==="number")state.calmScale=q.calmScale; if(q.sparkRange)state.sparkRange=q.sparkRange; if(q.camNames)state.camNames=q.camNames; if(q.camOrder&&q.camOrder.length)state.camOrder=q.camOrder; if(q.camHidden)state.camHidden=q.camHidden; if(q.skin)state.skin=q.skin; if(typeof q.showGusts==="boolean")state.showGusts=q.showGusts; if(q.elevUnit)state.elevUnit=q.elevUnit; if(q.upper)state.upper=q.upper; if(q.lower)state.lower=q.lower; if(q.groupsInit)state.groupsInit=true; if(q.vStation)state.vStation=q.vStation; if(q.vLead)state.vLead=String(q.vLead); if(q.vRange)state.vRange=q.vRange; if(q.vLayout)state.vLayout=q.vLayout; if(q.vMetric)state.vMetric=q.vMetric; }
       applySyncHash();   // a #sync=… link (opened on this device) overrides local settings + imports lists
       applySkin(state.skin);
       setSeg("unitSeg","data-u",state.unit); setSeg("viewSeg","data-v",state.view); setSeg("botnav","data-v",state.view); setSeg("rangeSeg","data-r",state.chartRange); setSeg("metricSeg","data-m",state.chartMetric); setSeg("sparkSeg","data-sr",state.sparkRange);
       refreshThreshUI();
-      initMap(); wire(); applyView(); renderLists(); render();
+      initMap(); wire(); wireVerify(); applyView(); renderLists(); render();
       loadData(); setInterval(loadData, 5*60000);
     });
   }

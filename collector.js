@@ -227,4 +227,33 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
   const out = { generated: new Date().toISOString(), source: 'skytech.si + ARSO + Wunderground PWS', stations };
   fs.writeFileSync(DATA_FILE, JSON.stringify(out));
   console.log('Wrote data.json with', stations.length, 'stations at', out.generated);
+
+  // ---- Rolling 7-day history (history.json next to data.json) ----
+  // Each run, every station's recent rw/rg/rd points (anchored at obsTs, stepMs apart) are merged
+  // into history.json, deduped per minute and pruned to 7 days. Compact rows:
+  // [epochMinutes, wind km/h, gust km/h, dir deg|null]. Only freshly collected stations are
+  // merged (carried-over snapshots would just re-add old points).
+  try {
+    const path = require('path');
+    const HIST_FILE = process.env.HIST_FILE || path.join(path.dirname(DATA_FILE), 'history.json');
+    const KEEP_MIN = 7*24*60, nowMin = Math.floor(Date.now()/60000);
+    let hist = { stations:{} };
+    try { hist = JSON.parse(fs.readFileSync(HIST_FILE,'utf8')); if(!hist.stations) hist.stations={}; } catch(e) {}
+    stations.forEach(st => {
+      if(!freshIds.has(st.id) || !st.obsTs || !st.rw || st.rw.length<2) return;
+      const step = st.stepMs||600000, n = st.rw.length;
+      const rows = hist.stations[st.id] || [];
+      const byMin = new Map(rows.map(r => [r[0], r]));
+      for(let i=0;i<n;i++){
+        const tMin = Math.round((st.obsTs-(n-1-i)*step)/60000);
+        const d = (st.rd && st.rd.length && st.rd[i]!=null) ? st.rd[i] : (i===n-1 ? st.dir : null);
+        byMin.set(tMin, [tMin, st.rw[i], st.rg[i]!=null?st.rg[i]:st.rw[i], d!=null?Math.round(d):null]);
+      }
+      hist.stations[st.id] = [...byMin.values()].filter(r => r[0] >= nowMin-KEEP_MIN).sort((a,b)=>a[0]-b[0]);
+    });
+    Object.keys(hist.stations).forEach(id => { const r=hist.stations[id]; if(!r.length || r[r.length-1][0] < nowMin-KEEP_MIN) delete hist.stations[id]; });
+    hist.generated = out.generated;
+    fs.writeFileSync(HIST_FILE, JSON.stringify(hist));
+    console.log('Wrote history.json for', Object.keys(hist.stations).length, 'stations');
+  } catch(e) { console.error('history write failed:', e.message); }
 })();
