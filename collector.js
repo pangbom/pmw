@@ -39,9 +39,12 @@ const ARSO_API = loc => `https://www.vreme.si/api/1.0/location/observations/?loc
 // Needs a WU API key, supplied at runtime via the WU_KEY env var (GitHub Actions secret) —
 // never hard-coded. If WU_KEY is unset, WU stations are simply skipped.
 const WU_KEY = process.env.WU_KEY || '';
-const WU_STATIONS = ['IKOBAR10','IKOBAR8','ITOLMI33','ITOLMI47','IBOVEC5','IBOVEC12','IBOVEC9'];
+// JB 2026-10-30: dropped IKOBAR8 Drežnica (offline for weeks), ITOLMI47 Čadrg, IBOVEC12 Ravni Laz.
+const WU_STATIONS = ['IKOBAR10','ITOLMI33','IBOVEC5','IBOVEC9'];
 // Curated names (JB's local corrections).
-const WU_NAMES = { IBOVEC5:'Road to Log', IBOVEC12:'Ravni Laz', IBOVEC9:'Log pod Mangartom', ITOLMI47:'Čadrg' };
+const WU_NAMES = { IKOBAR10:'Borjana', ITOLMI33:'Tolminske Ravne', IBOVEC5:'Road to Log', IBOVEC9:'Log pod Mangartom' };
+// Elevations (m) — the 1-day history endpoint doesn't return them.
+const WU_ELEV = { IKOBAR10:178, ITOLMI33:290, IBOVEC5:175, IBOVEC9:195 };
 
 async function collectSkytech(page) {
   await page.goto('https://skytech.si/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -124,32 +127,25 @@ async function collectArso(st) {
   } catch(e) { console.error('ARSO', st.loc, 'failed:', e.message); return null; }
 }
 
-// Wunderground PWS — server-side JSON API (needs WU_KEY). Returns current + ~3h of 5-min history.
+// Wunderground PWS — ONE call per station: the 1-day history endpoint (5-min rows) already ends at
+// the latest reading, so the separate "current" call was dropped to halve quota use. Needs WU_KEY.
 async function collectWU(id) {
   if(!WU_KEY) return null;
-  const base = 'https://api.weather.com/v2/pws/observations/';
-  const q = '&format=json&units=m&apiKey=' + WU_KEY;
   try {
-    const cur = await fetch(base+'current?stationId='+id+q).then(r=>r.json());
-    const o = cur.observations && cur.observations[0];
-    if(!o) { console.error('WU', id, 'no current obs'); return null; }
-    const m = o.metric || {};
-    let rw=[], rg=[], times=[];
-    try {
-      const hist = await fetch(base+'all/1day?stationId='+id+q).then(r=>r.json());
-      const obs = (hist.observations || []).slice(-36);
-      rw = obs.map(x => (x.metric && x.metric.windspeedAvg!=null) ? Math.round(x.metric.windspeedAvg) : 0);
-      rg = obs.map(x => (x.metric && x.metric.windgustHigh!=null) ? Math.round(x.metric.windgustHigh) : 0);
-      times = obs.map(x => x.epoch ? x.epoch*1000 : (x.obsTimeUtc?Date.parse(x.obsTimeUtc):0));
-      const n=Math.min(rw.length,rg.length); rw=rw.slice(0,n); rg=rg.slice(0,n); times=times.slice(0,n);
-    } catch(e) { /* history optional */ }
-    const cw = m.windSpeed!=null ? Math.round(m.windSpeed) : 0;
-    const cg = m.windGust!=null ? Math.round(m.windGust) : 0;
-    if(rw.length < 2) { rw=[cw,cw]; rg=[cg,cg]; times=[]; }
-    return { id:'wu_'+id.toLowerCase(), name:(WU_NAMES[id]||o.neighborhood||id), src:'Wunderground', web:'https://www.wunderground.com/dashboard/pws/'+id,
-      lat:o.lat, lon:o.lon, elev:(m.elev!=null?m.elev:null), real:true, cam:false, camUrl:'',
-      temp:(m.temp!=null?m.temp:null), dir:(o.winddir!=null?o.winddir:0), rw, rg, series:rw.slice(-12), gust:rg[rg.length-1],
-      obsTs: o.obsTimeUtc ? Date.parse(o.obsTimeUtc) : null, stepMs: times.length>1 ? medianStep(times) : 300000 };
+    const hist = await fetch('https://api.weather.com/v2/pws/observations/all/1day?stationId='+id+'&format=json&units=m&apiKey='+WU_KEY).then(r=>r.text());
+    let j; try { j = JSON.parse(hist); } catch(e) { console.error('WU', id, 'bad response:', hist.slice(0,80)); return null; }
+    const obs = (j.observations || []).filter(x => x.metric && x.metric.windspeedAvg!=null).slice(-36);
+    if(!obs.length) { console.error('WU', id, 'no observations'); return null; }
+    const rw = obs.map(x => Math.round(x.metric.windspeedAvg));
+    const rg = obs.map(x => x.metric.windgustHigh!=null ? Math.round(x.metric.windgustHigh) : Math.round(x.metric.windspeedAvg));
+    const rd = obs.map(x => x.winddirAvg!=null ? x.winddirAvg : null);
+    const times = obs.map(x => x.epoch ? x.epoch*1000 : Date.parse(x.obsTimeUtc));
+    const o = obs[obs.length-1], m = o.metric;
+    if(rw.length < 2) { rw.push(rw[0]); rg.push(rg[0]); rd.push(rd[0]); }
+    return { id:'wu_'+id.toLowerCase(), name:(WU_NAMES[id]||id), src:'Wunderground', web:'https://www.wunderground.com/dashboard/pws/'+id,
+      lat:o.lat, lon:o.lon, elev:(WU_ELEV[id]!=null?WU_ELEV[id]:null), real:true, cam:false, camUrl:'',
+      temp:(m.tempAvg!=null?m.tempAvg:null), dir:(o.winddirAvg!=null?o.winddirAvg:0), rw, rg, rd, series:rw.slice(-12), gust:rg[rg.length-1],
+      obsTs: times[times.length-1], stepMs: times.length>1 ? medianStep(times) : 300000 };
   } catch(e) { console.error('WU', id, 'failed:', e.message); return null; }
 }
 
@@ -203,12 +199,8 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
   await browser.close();
   // ARSO high stations (vreme.si JSON API) and Wunderground — plain HTTPS, no browser needed.
   for (const st of ARSO_LOCS) { const s = await collectArso(st); if(s) stations.push(s); }
-  // WU free keys allow ~1500 calls/day; 14 calls per run every ~9 min blew through that (key got
-  // "throttled" overnight). Only hit WU when the last WU reading we hold is >= 14 min old (~every
-  // other run, ~1100 calls/day); otherwise the carry-over below keeps the previous WU values.
-  const wuFresh = Object.keys(prev).some(id => id.indexOf('wu_')===0 && prev[id].obsTs && Date.now()-prev[id].obsTs < 14*60000);
-  if(WU_KEY && wuFresh){ console.log('WU skipped this run (last reading < 14 min old)'); }
-  else if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
+  // WU: 4 stations x 1 call per run (~every 9 min) = ~640 calls/day, well under the ~1500/day free quota.
+  if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
   else { console.log('WU_KEY not set — skipping Wunderground stations'); }
   for (const cfg of WEEWX) { const s = await collectWeeWX(cfg); if(s) stations.push(s); }
 
