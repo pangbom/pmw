@@ -8,7 +8,7 @@ name: Live loop (wind + cams)
 on:
   workflow_dispatch:
   schedule:
-    - cron: '7 */3 * * *'   # backup relaunch every ~3h (sparse crons are honored far more reliably than dense ones)
+    - cron: '7 * * * *'   # hourly backup relaunch: if the chain breaks (runner killed, exit 143), the loop is back within ~1h. Extra runs just queue behind the live one (concurrency group).
 
 permissions:
   contents: write
@@ -88,3 +88,14 @@ jobs:
           else
             echo "PMW_PAT not set — relying on the backup cron to relaunch."
           fi
+
+      # If the loop step dies early (runner killed / exit 143), relaunch straight away instead of
+      # waiting for the backup cron. Skipped on success (the loop relaunches itself) and on cancel.
+      - name: Relaunch after failure
+        if: failure()
+        env:
+          PMW_PAT: ${{ secrets.PMW_PAT }}
+        run: |
+          [ -n "$PMW_PAT" ] && curl -s -o /dev/null -w "failure relaunch dispatch: %{http_code}\n" -X POST \
+            -H "Authorization: token $PMW_PAT" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/pangbom/pmw/actions/workflows/loop.yml/dispatches" -d '{"ref":"main"}' || echo "no PMW_PAT"
