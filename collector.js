@@ -203,7 +203,12 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
   await browser.close();
   // ARSO high stations (vreme.si JSON API) and Wunderground — plain HTTPS, no browser needed.
   for (const st of ARSO_LOCS) { const s = await collectArso(st); if(s) stations.push(s); }
-  if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
+  // WU free keys allow ~1500 calls/day; 14 calls per run every ~9 min blew through that (key got
+  // "throttled" overnight). Only hit WU when the last WU reading we hold is >= 14 min old (~every
+  // other run, ~1100 calls/day); otherwise the carry-over below keeps the previous WU values.
+  const wuFresh = Object.keys(prev).some(id => id.indexOf('wu_')===0 && prev[id].obsTs && Date.now()-prev[id].obsTs < 14*60000);
+  if(WU_KEY && wuFresh){ console.log('WU skipped this run (last reading < 14 min old)'); }
+  else if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
   else { console.log('WU_KEY not set — skipping Wunderground stations'); }
   for (const cfg of WEEWX) { const s = await collectWeeWX(cfg); if(s) stations.push(s); }
 
