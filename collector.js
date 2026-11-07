@@ -40,11 +40,14 @@ const ARSO_API = loc => `https://www.vreme.si/api/1.0/location/observations/?loc
 // never hard-coded. If WU_KEY is unset, WU stations are simply skipped.
 const WU_KEY = process.env.WU_KEY || '';
 // JB 2026-10-30: dropped IKOBAR8 Drežnica (offline for weeks), ITOLMI47 Čadrg, IBOVEC12 Ravni Laz.
-const WU_STATIONS = ['IKOBAR10','ITOLMI33','IBOVEC5','IBOVEC9'];
+// JB 2026-11-07: added the Bovec-valley PWS set (all go in the Lower group on the board).
+const WU_STATIONS = ['IKOBAR10','ITOLMI33','IBOVEC5','IBOVEC9','ISOARI6','IBOVEC20','IBOVEC8','IBOVEC19','IBOVEC12','IBOVEC22'];
 // Curated names (JB's local corrections).
-const WU_NAMES = { IKOBAR10:'Borjana', ITOLMI33:'Tolminske Ravne', IBOVEC5:'Road to Log', IBOVEC9:'Log pod Mangartom' };
+const WU_NAMES = { IKOBAR10:'Borjana', ITOLMI33:'Tolminske Ravne', IBOVEC5:'Road to Log', IBOVEC9:'Log 2',
+  ISOARI6:'SB1', IBOVEC20:'SB2', IBOVEC8:'Czesoca', IBOVEC19:'TKK Srpenica', IBOVEC12:'Sv Lenart', IBOVEC22:'Log 1' };
 // Elevations (m) — the 1-day history endpoint doesn't return them.
-const WU_ELEV = { IKOBAR10:178, ITOLMI33:290, IBOVEC5:175, IBOVEC9:195 };
+// (old values for the first four were WU's feet-as-metres; replaced with terrain elevation at the station)
+const WU_ELEV = { IKOBAR10:463, ITOLMI33:952, IBOVEC5:513, IBOVEC9:630, ISOARI6:434, IBOVEC20:434, IBOVEC8:370, IBOVEC19:366, IBOVEC12:495, IBOVEC22:654 };
 
 async function collectSkytech(page) {
   await page.goto('https://skytech.si/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -199,8 +202,15 @@ function rank(id){ return id.indexOf('sky_')===0?0 : id.indexOf('arso_')===0?1 :
   await browser.close();
   // ARSO high stations (vreme.si JSON API) and Wunderground — plain HTTPS, no browser needed.
   for (const st of ARSO_LOCS) { const s = await collectArso(st); if(s) stations.push(s); }
-  // WU: 4 stations x 1 call per run (~every 9 min) = ~640 calls/day, well under the ~1500/day free quota.
-  if(WU_KEY){ for(const id of WU_STATIONS){ const s = await collectWU(id); if(s) stations.push(s); } }
+  // WU quota is ~1500 calls/day. 10 stations x every run (~160 runs/day) would be 1600, so each run
+  // refreshes only the WU_PER_RUN stations with the oldest data (8 -> ~1280/day, each station ~every
+  // 11 min). The rest are carried over from the last snapshot below.
+  const WU_PER_RUN = 8;
+  if(WU_KEY){
+    const age = id => { const p = prev['wu_'+id.toLowerCase()]; return p && p.obsTs ? p.obsTs : 0; };
+    const pick = WU_STATIONS.slice().sort((a,b) => age(a)-age(b)).slice(0, WU_PER_RUN);
+    for(const id of pick){ const s = await collectWU(id); if(s) stations.push(s); }
+  }
   else { console.log('WU_KEY not set — skipping Wunderground stations'); }
   for (const cfg of WEEWX) { const s = await collectWeeWX(cfg); if(s) stations.push(s); }
 
